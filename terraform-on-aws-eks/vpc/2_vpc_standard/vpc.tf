@@ -51,6 +51,7 @@ resource "aws_subnet" "public" {
 resource "aws_subnet" "private" {
     count = length(var.private_subnets)
     vpc_id = aws_vpc.basic-vpc.id
+
     cidr_block = var.private_subnets[count.index]
     availability_zone = element(data.aws_availability_zones.available.names, count.index)
 
@@ -103,7 +104,8 @@ resource "aws_eip" "nat-gateway-eip" {
     tags = merge(local.common_tags, {Name = "${local.name}-nat-gateway-eip-${count.index + 1}"})
 }
 resource "aws_nat_gateway" "simple-nat-gateway" {
-    count = length(var.public_subnets)
+    # count = length(var.public_subnets)
+    count         = var.vpc_enable_nat_gateway ? (var.vpc_single_nat_gateway ? 1 : length(var.public_subnets)) : 0
     allocation_id = aws_eip.nat-gateway-eip[count.index].id
     subnet_id = aws_subnet.public[count.index].id
     # what is ht edifference between the allocation_id and the subnet_id for the nat gateway?
@@ -115,9 +117,6 @@ resource "aws_nat_gateway" "simple-nat-gateway" {
     tags = merge(local.common_tags, {Name = "${local.name}-nat-gateway-${count.index + 1}"})
 }
 
-# list me hte things we are missing in this vpc configuration for a production ready vpc?
-# 1. we are missing the route tables and the routes for the public and private subnets.
-# 2. we are missing the security groups for the vpc.
 
 
 # route table
@@ -165,7 +164,9 @@ resource "aws_route_table" "private_route_table" {
 resource "aws_route_table_association" "private_route_table_association" {
     count = length(var.private_subnets)
     subnet_id      = aws_subnet.private[count.index].id
-    route_table_id = aws_route_table.private_route_table[count.index].id
+
+    route_table_id = var.vpc_single_nat_gateway ? aws_route_table.private_route_table[0].id : aws_route_table.private_route_table[count.index].id
+    # route_table_id = aws_route_table.private_route_table[count.index].id
     # why can't we use route_table_id = var.vpc_single_nat_gateway ? aws_route_table.private[0].id : aws_route_table.private[count.index].id
     # we can't use route_table_id = var.vpc_single_nat_gateway ? aws_route_table.private[0].id : aws_route_table.private[count.index].id because it will not work with the for loop in the route table association resource, and it will also not work with the count in the route table resource.
 }
