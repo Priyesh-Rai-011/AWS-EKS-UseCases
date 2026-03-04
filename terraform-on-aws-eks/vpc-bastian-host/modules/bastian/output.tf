@@ -1,3 +1,4 @@
+# =+=+=+=+=+=+=+=+=+=+=+=+=+=+
 output "bastion_instance_id" {
   description = "EC2 instance ID — use this to start SSM session"
   value       = aws_instance.bastion.id
