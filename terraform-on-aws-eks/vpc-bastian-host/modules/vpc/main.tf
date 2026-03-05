@@ -41,7 +41,7 @@ resource "aws_subnet" "public" {
 
 # private subnet
 resource "aws_subnet" "private" {
-  count             = length(var.private_subnets)   # fix: length not leanth
+  count             = length(var.private_subnets)
   vpc_id            = aws_vpc.basic-vpc.id
   cidr_block        = var.private_subnets[count.index]
   availability_zone = element(data.aws_availability_zones.available.names, count.index)
