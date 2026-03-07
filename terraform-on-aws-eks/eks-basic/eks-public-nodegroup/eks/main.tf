@@ -1,10 +1,7 @@
 # # =+=+=+=+=+=+=+=+=+=+=+=+=+=+
 resource "aws_eks_cluster" "simple-eks-cluster" {
-    
-} 
-
-
-
+       
+}
 
 
 
