@@ -20,4 +20,4 @@
                      Helper container and reads using main container.
 
                      Istio is avery good example of Service mesh Envoy Proxy.
-      <img width="1100" height="859" alt="Image" src="https://github.com/user-attachments/assets/73a8c5db-c7e7-4f19-abe4-cb6d479562a9" />
+      <img width="550" height="429" alt="Image" src="https://github.com/user-attachments/assets/73a8c5db-c7e7-4f19-abe4-cb6d479562a9" />
