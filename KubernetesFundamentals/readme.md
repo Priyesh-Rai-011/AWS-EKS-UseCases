@@ -1,7 +1,7 @@
 <!--we -->
 ## Let's understand the kubernetes fundamentals. [   Things I learned along the way   ]
 
-#### 1. Kubernetes PODs
+### 1. Kubernetes PODs
 
 - pods generally have one to one relationship with containers.
 - To scale up the application -> we create new pods.
