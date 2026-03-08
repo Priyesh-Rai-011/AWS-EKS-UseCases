@@ -12,9 +12,9 @@
 
 #### But can we have multiple containers in a single POD? : YES ..!!
 
-Kubernetes natively support multiple identical containers sharing the same:
+- Kubernetes natively support multiple identical containers sharing the same:
     - IP/port namespace.
-    Both Nginx instances would bind to ports 80/443 on the pod's single IP (e.g., 10.244.1.5), handle requests via **kernel load balancing**, and share volumes/signals. 
+    - Both Nginx instances would bind to ports 80/443 on the pod's single IP (e.g., 10.244.1.5), handle requests via **kernel load balancing**, and share volumes/signals. 
 Use case: temporary redundancy, A/B testing same app version, or horizontal scaling within a pod.
 <!-- ```
 Pod Reality (Multi-Container Native):
