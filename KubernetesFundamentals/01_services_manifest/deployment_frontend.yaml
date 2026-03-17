@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: frontend-nginxapp
+  labels: 
+    app: frontend-app
+    tier: frontend
+
+spec:
+  replicas: 3
+  selector:
+    matchLabels:   
+      app: frontend-app
+# ---------------/--------------------------------------------------------------# 
+  template:   #this is the template for the pods and container running inside
+    metadata:
+      labels:
+        app: frontend-app
+        tier: frontend
+    spec:
+      containers:
+      - name: frontend-container
+        image: stacksimplify/kube-frontend-nginx:1.0.0
+        ports:
+          - containerPort: 80
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"

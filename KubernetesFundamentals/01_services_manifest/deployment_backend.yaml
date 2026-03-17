@@ -24,8 +24,21 @@ spec:
         - containerPort: 8080
         resources:
           requests:
-            memory: 64Mi
-            cpu: "250m"
+            memory: 256Mi
+            cpu: "300m"
           limits:
-            memory: 128Mi
+            memory: 512Mi
             cpu: "500m"
+
+# If you wish to have one sidecar container tehn this block will liik like this
+      # - name: sidecar-container-eg-istio
+      #   image: x0ox0ox0ox0ox0/=-0=-0=-0=-0=-0=-0=-0
+      #   ports:
+      #   - containerPort: xxx
+      #   resources:
+      #     requests:
+      #       memory: ---Mi
+      #       cpu: "---m"
+      #     limits:
+      #       memory: ---Mi
+      #       cpu: "---m"

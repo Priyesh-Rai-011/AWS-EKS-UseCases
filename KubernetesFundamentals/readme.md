@@ -12,26 +12,10 @@
 ### But can we have multiple containers in a single POD? : YES ..!!
 
 Kubernetes natively support multiple identical containers sharing the same:
-    - IP/port namespace.
-    - Both Nginx instances would bind to ports 80/443 on the pod's single IP (e.g., 10.244.1.5), handle requests via **kernel load balancing**, and share volumes/signals. 
-Use case: temporary redundancy, A/B testing same app version, or horizontal scaling within a pod.
-<!-- ```
-Pod Reality (Multi-Container Native):
-+------------------------------------------------------------------------------------+
-| Pod: ecommerce-frontend                                                            |
-|                                                                                    |
-|  +---------------+  +---------------+           +---------------+  +-------------+ |
-|  | Container 1   |  | Container 1   |           | Container 2   |  | Container 3 | |
-|  | nginx:1.25    |  | nginx:1.25    |           | istio-proxy   |  | fluentd     | |
-|  | (web server)  |  | (web server)  |← Both on  | (envoy)       |  | (logs)      | |
-|  +---------------+  +---------------+  pod IP   +---------------+  +-------------+ |                   |
-|                                          |                                         |
-| Shared: 10.244.1.5 IP, localhost:80 → kernel LB                                    |
-|                                                                                    |
-|  ALL share: 10.244.1.5 IP, /data volume, signals                                   |
-+------------------------------------------------------------------------------------+
-``` -->
 
+- IP/port namespace.
+- Both Nginx instances would bind to ports 80/443 on the pod's single IP (e.g., 10.244.1.5), handle requests via **kernel load balancing**, and share volumes/signals. 
+Use case: temporary redundancy, A/B testing same app version, or horizontal scaling within a pod.
 
 <table>
 <tr>
@@ -82,18 +66,20 @@ Industry standards favor one main app container per pod for production scalabili
 
 - We can have multiple containers in a single POD, provided they are **not of same kind (service)**
 - Helper conatiner (  Side-Cars  )
-    - Data-pullers : Pull data required by many containers
-    - Data-pushers : Push data to the service conatianer from main container (logs)
-    - Proxies      : Writes static data to HTML files using. 
+  - Data-pullers : Pull data required by many containers
+  - Data-pushers : Push data to the service conatianer from main container (logs)
+  - Proxies      : Writes static data to HTML files using. 
                      Helper container and reads using main container.
 
 Istio is a very good example of Service mesh Envoy Proxy.
 
-<center><img align="center" width="26%" height="26%" alt="Image" src="https://github.com/user-attachments/assets/73a8c5db-c7e7-4f19-abe4-cb6d479562a9"/></center>
+<!-- <center> -->
+<img align="center" width="26%" height="26%" alt="Image" src="https://github.com/user-attachments/assets/73a8c5db-c7e7-4f19-abe4-cb6d479562a9"/>
+<!-- </center> -->
 
 - #### What is a Sidecar?
-  A sidecar is an extra container in the same Kubernetes pod as your main app container, sharing the same network namespace but running separately. It "sits beside" your app to handle auxiliary tasks like proxying traffic (Envoy in Istio), logging, or monitoring—your app talks normally, but all traffic routes through the sidecar.
 
+  A sidecar is an extra container in the same Kubernetes pod as your main app container, sharing the same network namespace but running separately. It "sits beside" your app to handle auxiliary tasks like proxying traffic (Envoy in Istio), logging, or monitoring—your app talks normally, but all traffic routes through the sidecar.
 
 <table>
 <tr>
@@ -145,6 +131,7 @@ Result: Multi-container pod runs both seamlessly.
 </table>
 
 ---
----
 
 ### 2. POD logs and describe:
+
+Hi.
