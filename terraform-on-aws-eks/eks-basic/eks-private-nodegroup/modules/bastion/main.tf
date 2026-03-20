@@ -1,4 +1,3 @@
-# =+=+=+=+=+=+=+=+=+=+=+=+=+=+
 # -------------------------------------------------------------------
 # Data Source: latest Amazon Linux 2023 AMI
 # SSM Agent comes pre-installed on Amazon Linux 2023
@@ -7,7 +6,6 @@
 data "aws_ami" "amazon_linux_2023" {
   most_recent = true
   owners      = ["amazon"]
-
   filter {
     name   = "name"
     values = ["al2023-ami-2023.*-x86_64"]
@@ -19,18 +17,17 @@ data "aws_ami" "amazon_linux_2023" {
   }
 }
 
+
 # -------------------------------------------------------------------
 # IAM Role for Bastion
 # -------------------------------------------------------------------
-# Why do we need an IAM role for SSM?
 # The EC2 instance needs permission to talk to AWS SSM service.
 # Without this role, SSM agent on the instance has no credentials
-# to register itself with AWS SSM — so you won't see it in the console.
+# to register itself with AWS SSM.
 
 resource "aws_iam_role" "bastion_ssm_role" {
   name = "${var.name}-bastion-ssm-role"
 
-  # This is the trust policy — it says "EC2 service is allowed to assume this role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -47,18 +44,51 @@ resource "aws_iam_role" "bastion_ssm_role" {
   tags = merge(var.common_tags, { Name = "${var.name}-bastion-ssm-role" })
 }
 
-# Attach the AWS managed policy that gives SSM full access to manage the instance
-# AmazonSSMManagedInstanceCore allows:
-#   - SSM agent to register with AWS
-#   - You to start sessions via AWS Console or CLI
-#   - SSM to send commands to the instance
+
+# -------------------------------------------------------------------
+# POLICY ATTACHMENT 1 — AWS Managed: SSM Core
+# Allows SSM agent to register + allows you to start sessions
+# -------------------------------------------------------------------
 resource "aws_iam_role_policy_attachment" "bastion_ssm_policy" {
   role       = aws_iam_role.bastion_ssm_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-# Instance Profile is the "wrapper" that lets you attach an IAM role to an EC2 instance
-# You can't attach an IAM role directly to EC2 — it must go through an instance profile
+
+# -------------------------------------------------------------------
+# POLICY 2 — Inline: EKS + EC2 Describe permissions
+# aws_iam_role_policy writes permissions DIRECTLY into the role —
+# no separate attachment needed. Both policies live on the same role.
+# One role, one EC2 instance, multiple sets of permissions.
+# -------------------------------------------------------------------
+resource "aws_iam_role_policy" "bastion_eks_ec2_policy" {
+  name = "${var.name}-eks-ec2-policy"
+  role = aws_iam_role.bastion_ssm_role.name   # the same role 
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:DescribeCluster",
+          "eks:ListClusters",
+          "eks:ListAccessEntries",
+          "ec2:DescribeInstances",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeRouteTables"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+
+# -------------------------------------------------------------------
+# Instance Profile — wrapper to attach IAM role to EC2
+# You cannot attach an IAM role directly to EC2, must use a profile
+# -------------------------------------------------------------------
 resource "aws_iam_instance_profile" "bastion_instance_profile" {
   name = "${var.name}-bastion-instance-profile"
   role = aws_iam_role.bastion_ssm_role.name
@@ -66,23 +96,18 @@ resource "aws_iam_instance_profile" "bastion_instance_profile" {
   tags = merge(var.common_tags, { Name = "${var.name}-bastion-instance-profile" })
 }
 
+
 # -------------------------------------------------------------------
 # Security Group for Bastion
+# No inbound rules — SSM works by the agent calling OUT to AWS on 443
 # -------------------------------------------------------------------
-# With SSM we do NOT need port 22 open at all.
-# The instance only needs OUTBOUND port 443 to reach AWS SSM endpoints.
-# No inbound rules needed — SSM works by the agent calling OUT to AWS.
-
 resource "aws_security_group" "bastion_sg" {
   name        = "${var.name}-bastion-sg"
   description = "Bastion host SG - no inbound needed, SSM uses outbound 443 only"
   vpc_id      = var.vpc_id
 
-  # NO ingress rules - SSM does not require any open inbound ports
-  # This is what makes SSM more secure than SSH
-
   egress {
-    description = "Allow outbound HTTPS to reach AWS SSM service endpoints"
+    description = "Allow outbound HTTPS to reach AWS SSM and EKS endpoints"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
@@ -92,20 +117,16 @@ resource "aws_security_group" "bastion_sg" {
   tags = merge(var.common_tags, { Name = "${var.name}-bastion-sg" })
 }
 
+
 # -------------------------------------------------------------------
 # Bastion EC2 Instance
 # -------------------------------------------------------------------
-# Note: no key_name here — SSM login does not need a key pair
-# Note: no Elastic IP needed — SSM connects through AWS internally
-
 resource "aws_instance" "bastion" {
-  ami                  = data.aws_ami.amazon_linux_2023.id
-  instance_type        = var.instance_type
-  subnet_id            = var.subnet_id            # public subnet from vpc module
-  iam_instance_profile = aws_iam_instance_profile.bastion_instance_profile.name
+  ami                    = data.aws_ami.amazon_linux_2023.id
+  instance_type          = var.instance_type
+  subnet_id              = var.subnet_id
+  iam_instance_profile   = aws_iam_instance_profile.bastion_instance_profile.name
   vpc_security_group_ids = [aws_security_group.bastion_sg.id]
-
-  # No key_name — we are using SSM, not SSH
 
   root_block_device {
     volume_type           = "gp3"
@@ -116,14 +137,31 @@ resource "aws_instance" "bastion" {
     tags = merge(var.common_tags, { Name = "${var.name}-bastion-volume" })
   }
 
+  # user_data runs ONCE on first boot only.
+  # If the instance already exists, taint it to force recreation:
+  #   terraform taint module.bastion.aws_instance.bastion
+  #   terraform apply
   user_data = <<-EOF
     #!/bin/bash
+    set -e
+
     # Update all packages
     dnf update -y
-    # SSM Agent is already installed on Amazon Linux 2023
-    # Just make sure it's enabled and running
+
+    # SSM Agent is pre-installed on AL2023 — just ensure it's running
     systemctl enable amazon-ssm-agent
     systemctl start amazon-ssm-agent
+
+    # Install kubectl
+    curl -LO "https://dl.k8s.io/release/$(curl -Ls https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+    chmod +x kubectl
+    mv kubectl /usr/local/bin/kubectl
+
+    # Configure kubeconfig for root — runs at boot so cluster must exist already
+    # Cluster name and region are injected by Terraform templatestring
+    aws eks update-kubeconfig \
+      --region ${var.aws_region} \
+      --name ${var.cluster_name}
   EOF
 
   tags = merge(var.common_tags, {

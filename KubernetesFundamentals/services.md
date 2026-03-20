@@ -1,5 +1,10 @@
+
 # Things I learn along the way.
 
+### Services:
+Services are logical instances of an application
+
+---
 ```
         +----------------------------------------------------------------------------+
         | Category                 | Components                                      |

@@ -1,47 +1,63 @@
 # =+=+=+=+=+=+=+=+=+=+=+=+=+=+
+
 variable "cluster_name" {
-  description = "Name of the EKS cluster"
-  type        = string
+  type = string
 }
 
-variable "kubernetes_version" {
-  description = "EKS Kubernetes version"
-  type        = string
-  default     = "1.29"
-}
-
-variable "private_subnet_ids" {
-  description = "Private subnets for worker nodes"
-  type        = list(string)
-}
-
-variable "public_subnet_ids" {
-  description = "Public subnets for load balancers"
-  type        = list(string)
+variable "cluster_version" {
+  type    = string
+  default = "1.33"
 }
 
 variable "vpc_id" {
-  description = "VPC where EKS will be deployed"
+  type = string
+}
+
+variable "private_subnet_ids" {
+  type = list(string)
+}
+
+variable "private_subnet_cidrs" {
+  type        = list(string)
+  description = "Used in the PrivateLink SG ingress rule to allow port 443 from nodes"
+}
+variable "public_subnet_ids" {
+  type = list(string)
+}
+variable "public_subnet_cidrs" {
+  type        = list(string)
+  description = "Public subnet CIDRs — needed to allow bastion to reach EKS API"
+}
+
+# variable "public_subnet_cidrs" {
+#   type        = list(string)
+#   description = "Used in the PrivateLink SG ingress rule to allow port 443 from nodes"
+# }
+
+variable "endpoint_public_access" {
+  type    = bool
+  default = true
+}
+
+variable "endpoint_private_access" {
+  type    = bool
+  default = true
+}
+
+variable "enable_cluster_logging" {
+  type    = bool
+  default = false
+}
+
+variable "tags" {
+  type    = map(string)
+  default = {}
+}
+
+
+# -============-=
+# -==========-=-=-
+variable "bastion_role_arn" {
   type        = string
-}
-
-variable "node_instance_type" {
-  description = "Instance type for worker nodes"
-  type        = string
-  default     = "t3.medium"
-}
-
-variable "desired_nodes" {
-  type    = number
-  default = 2
-}
-
-variable "min_nodes" {
-  type    = number
-  default = 1
-}
-
-variable "max_nodes" {
-  type    = number
-  default = 3
+  description = "IAM role ARN of the bastion host — granted EKS cluster admin access"
 }

@@ -22,3 +22,12 @@ variable "instance_type" {
   type    = string
   default = "t3.micro"
 }
+
+# -=-=-=-=-=-=-=-=-=-=-=-=--
+variable "aws_region" {
+  type = string
+}
+
+variable "cluster_name" {
+  type = string
+}

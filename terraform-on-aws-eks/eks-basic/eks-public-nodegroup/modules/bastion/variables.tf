@@ -23,22 +23,17 @@ variable "instance_type" {
   default = "t3.micro"
 }
 
-variable "root_volume_size" {
-  type    = number
-  default = 20
+# =-=-=-=-=-=-=-=-=-=-=-=-=-=
+variable "aws_region" {
+  type = string
 }
 
-variable "root_volume_type" {
-  type    = string
-  default = "gp3"
+variable "cluster_name" {
+  type = string
+  # default = "dev"
 }
-
-variable "root_volume_delete_on_termination" {
-  type    = bool
-  default = true
-}
-
-variable "root_volume_encrypted" {
-  type    = bool
-  default = true
+# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+output "bastion_role_arn" {
+  description = "IAM role ARN attached to the bastion EC2 instance"
+  value       = aws_iam_role.bastion_ssm_role.arn
 }
