@@ -1,11 +1,12 @@
-#
+# Things I learned along the way
 
-##
+## 000000
 
 
 ### The folder structure :
 
 ```
+
 Volume serial number is 9841-2D5E
 C:.
 │   .gitignore
@@ -43,4 +44,17 @@ C:.
     │
     └───test
         └───java
+
 ```
+
+
+
+
+
+
+docker run -p 8080:8080 `
+  -e AWS_ACCESS_KEY_ID="YOUR_ACCESS_KEY" `
+  -e AWS_SECRET_ACCESS_KEY="YOUR_SECRET_KEY" `
+  -e AWS_REGION="us-east-1" `
+  -e AWS_BUCKET_NAME="your-demo-bucket-name" `
+  priyeshrai711/s3-oidc-demo:latest
