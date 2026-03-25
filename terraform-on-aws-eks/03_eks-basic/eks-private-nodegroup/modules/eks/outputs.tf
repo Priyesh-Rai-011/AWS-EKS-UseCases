@@ -22,5 +22,5 @@ output "node_role_arn" {
 }
 
 output "node_group_status" {
-  value = aws_eks_node_group.private_node_group.status   # was: private
+  value = aws_eks_node_group.private_node_group  # was: private
 }

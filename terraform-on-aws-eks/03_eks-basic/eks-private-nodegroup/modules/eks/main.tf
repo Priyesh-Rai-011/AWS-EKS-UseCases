@@ -16,6 +16,12 @@ resource "aws_security_group" "private_link_sg" {
     protocol    = "tcp"
     cidr_blocks = var.private_subnet_cidrs
   }
+  ingress  {
+    from_port   = 443                 
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = var.public_subnet_cidrs
+  }
 
   ingress {
     # description = "HTTPS within the cluster SG — cross-node communication"
@@ -45,8 +51,12 @@ resource "aws_eks_cluster" "basic_eks_cluster" {
   role_arn = aws_iam_role.eks_cluster_role.arn
   version  = var.cluster_version
 
+  access_config {
+    authentication_mode = "API_AND_CONFIG_MAP"
+  }     
+
   vpc_config {
-    subnet_ids              = var.private_subnet_ids
+    subnet_ids              = concat(var.public_subnet_ids,var.private_subnet_ids)
     endpoint_public_access  = var.endpoint_public_access
     endpoint_private_access = var.endpoint_private_access
     security_group_ids      = [aws_security_group.private_link_sg.id]
@@ -77,7 +87,7 @@ resource "aws_eks_cluster" "basic_eks_cluster" {
 # ==============================================================================
 resource "aws_eks_node_group" "private_node_group" {
   cluster_name    = aws_eks_cluster.basic_eks_cluster.name
-  node_group_name = "${var.cluster_name}-system-ng"
+  node_group_name = "${var.cluster_name}-private-ng"
   node_role_arn   = aws_iam_role.eks_node_group_role.arn
   subnet_ids      = var.private_subnet_ids
 
@@ -88,22 +98,22 @@ resource "aws_eks_node_group" "private_node_group" {
   scaling_config {   # It automatically creates a auto scaling group ASG when we write this config
     desired_size = 2   
     min_size     = 2
-    max_size     = 2
+    max_size     = 3
   }
 
   update_config {
     max_unavailable = 1
   }
 
-  labels = {
-    role = "system"   # Karpenter Helm chart uses this to pin itself here
-  }
+  # labels = {
+  #   role = "system"   # Karpenter Helm chart uses this to pin itself here
+  # }
 
-  taint {
-    key    = "CriticalAddonsOnly"
-    value  = "true"
-    effect = "NO_SCHEDULE"   # blocks app pods from landing on system nodes
-  }
+  # taint {
+  #   key    = "CriticalAddonsOnly"
+  #   value  = "true"
+  #   effect = "NO_SCHEDULE"   # blocks app pods from landing on system nodes
+  # }
 
   depends_on = [
     aws_eks_cluster.basic_eks_cluster,
@@ -114,8 +124,8 @@ resource "aws_eks_node_group" "private_node_group" {
   ]
 
   tags = merge(var.tags, {
-    Name                     = "${var.cluster_name}-system-node"
-    "karpenter.sh/discovery" = var.cluster_name   # Karpenter uses this tag to find subnets and SGs
+    Name                     = "${var.cluster_name}-public-node"
+    # "karpenter.sh/discovery" = var.cluster_name   # Karpenter uses this tag to find subnets and SGs
   })
 }
 
@@ -183,4 +193,31 @@ resource "aws_eks_addon" "metric_server" {
   resolve_conflicts_on_update = "PRESERVE"
   depends_on                  = [aws_eks_cluster.basic_eks_cluster, aws_eks_node_group.private_node_group]
   tags                        = var.tags
+}
+
+
+
+# =======================================================
+# ==============================================================================
+# EKS ACCESS ENTRY — Bastion Host IAM Role
+# ==============================================================================
+resource "aws_eks_access_entry" "bastion" {
+  cluster_name  = aws_eks_cluster.basic_eks_cluster.name
+  principal_arn = var.bastion_role_arn
+  type          = "STANDARD"
+
+  depends_on = [aws_eks_cluster.basic_eks_cluster]
+  tags       = var.tags
+}
+
+resource "aws_eks_access_policy_association" "bastion_admin" {
+  cluster_name  = aws_eks_cluster.basic_eks_cluster.name
+  principal_arn = var.bastion_role_arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.bastion]
 }
