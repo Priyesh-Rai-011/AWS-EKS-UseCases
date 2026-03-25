@@ -2,7 +2,8 @@
 
 ##
 
-\```
+```
+
 ┌──────────────┐ 1. Pod starts
 │ EKS Pod      │
 │ (boto3 app)  │
@@ -32,6 +33,7 @@
        │                  │ (S3ReaderRole)  │
        │                  └─────────────────┘
        │ 7. App gets temp AWS_ACCESS_KEY_ID (1hr)
+
 ```
 
 ---
