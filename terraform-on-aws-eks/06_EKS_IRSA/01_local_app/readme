@@ -47,14 +47,14 @@ C:.
 
 ```
 
+How to run & test the container in local setup:
 
-
-
-
-
+```
 docker run -p 8080:8080 `
   -e AWS_ACCESS_KEY_ID="YOUR_ACCESS_KEY" `
   -e AWS_SECRET_ACCESS_KEY="YOUR_SECRET_KEY" `
   -e AWS_REGION="us-east-1" `
   -e AWS_BUCKET_NAME="your-demo-bucket-name" `
   priyeshrai711/s3-oidc-demo:latest
+
+```
