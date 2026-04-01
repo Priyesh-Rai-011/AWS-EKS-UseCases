@@ -46,8 +46,9 @@ C:.
         └───java
 
 ```
+---
 
-How to run & test the container in local setup:
+#### How to run & test the container in local setup:
 
 ```
 docker run -p 8080:8080 `
