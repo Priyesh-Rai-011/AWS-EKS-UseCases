@@ -2,14 +2,48 @@
 
 variable "aws_region" {
   type    = string
-  default = "ap-south-1"
+  default = "ap-south-2"
 }
 
+# variable "environment" {
+#   type    = string
+#   default = "dev-2"
+# }
 variable "environment" {
   type    = string
   default = "dev"
 }
 
+# # ── VPC ───────────────────────────────────────────────────────────────────────
+# variable "vpc_cidr_block" {
+#   type    = string
+#   default = "10.1.0.0/16"
+# }
+
+# variable "public_subnets" {
+#   type    = list(string)
+#   default = ["10.1.1.0/24", "10.1.2.0/24", "10.1.3.0/24"]
+# }
+
+# variable "private_subnets" {
+#   type    = list(string)
+#   default = ["10.1.11.0/24", "10.1.12.0/24", "10.1.13.0/24"]
+# }
+
+# variable "database_subnets" {
+#   type    = list(string)
+#   default = ["10.1.21.0/24", "10.1.22.0/24", "10.1.23.0/24"]
+# }
+
+# variable "enable_nat_gateway" {
+#   type    = bool
+#   default = true
+# }
+
+# variable "single_nat_gateway" {
+#   type    = bool
+#   default = true
+# }
 # ── VPC ───────────────────────────────────────────────────────────────────────
 variable "vpc_cidr_block" {
   type    = string
