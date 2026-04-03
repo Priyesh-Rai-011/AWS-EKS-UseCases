@@ -24,3 +24,11 @@ output "node_role_arn" {
 output "node_group_status" {
   value = aws_eks_node_group.public_node_group.status   # was: private
 }
+# # --------------------------------------------------------------
+# output "oidc_provider_arn" {
+#   value = aws_iam_openid_connect_provider.oidc_provider.arn
+# }
+
+# output "oidc_provider_url" {
+#   value = aws_eks_cluster.this.identity[0].oidc[0].issuer
+# }
