@@ -21,10 +21,3 @@ module "irsa" {
 
   common_tags          = local.common_tags
 }
-
-
-
-
-
-# this is to be 
-# 
