@@ -63,7 +63,7 @@ resource "aws_iam_role_policy_attachment" "bastion_ssm_policy" {
 # -------------------------------------------------------------------
 resource "aws_iam_role_policy" "bastion_eks_ec2_policy" {
   name = "${var.name}-eks-ec2-policy"
-  role = aws_iam_role.bastion_ssm_role.name   # the same role 
+  role = aws_iam_role.bastion_ssm_role.name
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -76,7 +76,12 @@ resource "aws_iam_role_policy" "bastion_eks_ec2_policy" {
           "eks:ListAccessEntries",
           "ec2:DescribeInstances",
           "ec2:DescribeSubnets",
-          "ec2:DescribeRouteTables"
+          "ec2:DescribeRouteTables",
+          "ec2:DescribeSecurityGroups",      
+          "ec2:AuthorizeSecurityGroupIngress",
+          "elasticloadbalancing:DescribeLoadBalancers",     
+          "elasticloadbalancing:DescribeTargetGroups",      
+          "elasticloadbalancing:DescribeListeners"          
         ]
         Resource = "*"
       }
@@ -105,13 +110,35 @@ resource "aws_security_group" "bastion_sg" {
   name        = "${var.name}-bastion-sg"
   description = "Bastion host SG - no inbound needed, SSM uses outbound 443 only"
   vpc_id      = var.vpc_id
-
+  ingress {
+    description      = "Allow HTTP traffic from anywhere"
+    from_port        = 80
+    to_port          = 80
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
+  ingress {
+    description      = "Allow HTTP traffic from anywhere"
+    from_port        = 8080
+    to_port          = 8080
+    protocol         = "tcp"
+    cidr_blocks      = ["0.0.0.0/0"]
+    ipv6_cidr_blocks = ["::/0"]
+  }
   egress {
     description = "Allow outbound HTTPS to reach AWS SSM and EKS endpoints"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+  egress {
+    description = "Allow Bastion to reach EKS Pods on 8080"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"] # Use your VPC CIDR to keep it internal
   }
 
   tags = merge(var.common_tags, { Name = "${var.name}-bastion-sg" })
@@ -159,9 +186,7 @@ resource "aws_instance" "bastion" {
 
     # Configure kubeconfig for root — runs at boot so cluster must exist already
     # Cluster name and region are injected by Terraform templatestring
-    aws eks update-kubeconfig \
-      --region ${var.aws_region} \
-      --name ${var.cluster_name}
+    aws eks update-kubeconfig --region ${var.aws_region} --name ${var.cluster_name}
   EOF
 
   tags = merge(var.common_tags, {

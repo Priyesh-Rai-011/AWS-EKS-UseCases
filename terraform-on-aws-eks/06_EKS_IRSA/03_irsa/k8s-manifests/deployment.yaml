@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: s3-demo
+  namespace: s3-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: s3-demo
+  template:
+    metadata:
+      labels:
+        app: s3-demo
+    spec:
+      serviceAccountName: s3-demo-sa    # this is the IRSA link — do not remove
+      containers:
+        - name: s3-demo
+          image: REPLACE_WITH_ECR_IMAGE_URI
+          ports:
+            - containerPort: 8080
+          env:
+            - name: AWS_REGION
+              value: "ap-south-1"
+          # DO NOT add AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY
+          # EKS automatically injects:
+          #   AWS_WEB_IDENTITY_TOKEN_FILE  ← path to the projected token
+          #   AWS_ROLE_ARN                 ← the role from service-account annotation
+          # Java DefaultCredentialsProvider picks these up with zero code changes
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"

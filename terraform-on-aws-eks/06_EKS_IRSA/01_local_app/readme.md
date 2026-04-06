@@ -46,7 +46,6 @@ C:.
         └───java
 
 ```
----
 
 #### How to run & test the container in local setup:
 

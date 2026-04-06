@@ -25,13 +25,13 @@ output "configure_kubectl" {
   value       = "aws eks update-kubeconfig --region ${var.aws_region} --name ${module.eks.cluster_name}"
 }
 
-# # outpust required for the IRSA module 
-# output "oidc_provider_arn" {
-#   description = "The ARN of the OIDC provider"
-#   value = module.eks
-# }
+# ── Required by 03_irsa — reads these via terraform_remote_state ──────────────
+output "oidc_provider_arn" {
+  description = "ARN of the OIDC provider — consumed by 03_irsa module"
+  value       = module.eks.oidc_provider_arn
+}
 
-# output "oidc_provider_url" {
-#   description = "The URL of the OIDC provider"
-#   value = module.eks.oidc_provider_url
-# }
+output "oidc_provider_url" {
+  description = "OIDC issuer URL without https:// — consumed by 03_irsa module"
+  value       = module.eks.oidc_provider_url
+}

@@ -29,34 +29,28 @@ public class S3Service {
     // ── List top-level folders and files in a bucket ──────────────
     public void printS3Tree(String bucketName) {
         try {
-            // Auto-detect the bucket's region
-            String bucketRegion = s3Client.getBucketLocation(r -> r.bucket(bucketName))
-                    .locationConstraintAsString();
+                // Auto-detect the bucket's region
+                String bucketRegion = s3Client.getBucketLocation(r -> r.bucket(bucketName)).locationConstraintAsString();
 
-            // If empty string, bucket is in us-east-1
-            if (bucketRegion == null || bucketRegion.isBlank()) {
-                bucketRegion = "us-east-1";
-            }
+                // If empty string, bucket is in us-east-1
+                if (bucketRegion == null || bucketRegion.isBlank()) {
+                        bucketRegion = "us-east-1";
+                }
 
-            // Build a region-specific client for this bucket
-            S3Client regionalClient = S3Client.builder()
-                    .region(Region.of(bucketRegion))
-                    .build();
+                // Build a region-specific client for this bucket
+                S3Client regionalClient = S3Client.builder().region(Region.of(bucketRegion)).build();
 
-            ListObjectsV2Request request = ListObjectsV2Request.builder()
-                    .bucket(bucketName)
-                    .delimiter("/")
-                    .build();
+                ListObjectsV2Request request = ListObjectsV2Request.builder().bucket(bucketName).delimiter("/").build();
 
-            ListObjectsV2Response response = regionalClient.listObjectsV2(request);
+                ListObjectsV2Response response = regionalClient.listObjectsV2(request);
 
-            response.commonPrefixes().forEach(prefix ->
-                    System.out.println("  └── [DIR]  " + prefix.prefix()));
-            response.contents().forEach(obj ->
-                    System.out.println("  ├── [FILE] " + obj.key() + " (" + obj.size() + " bytes)"));
+                response.commonPrefixes().forEach(prefix ->
+                        System.out.println("  └── [DIR]  " + prefix.prefix()));
+                response.contents().forEach(obj ->
+                        System.out.println("  ├── [FILE] " + obj.key() + " (" + obj.size() + " bytes)"));
 
         } catch (S3Exception e) {
-            System.out.println("  ⚠ Skipped (no access or wrong region): " + e.getMessage());
+                System.out.println("  ⚠ Skipped (no access or wrong region): " + e.getMessage());
         }
     }
 

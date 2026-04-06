@@ -221,3 +221,22 @@ resource "aws_eks_access_policy_association" "bastion_admin" {
 
   depends_on = [aws_eks_access_entry.bastion]
 }
+
+# ==============================================================================
+# OIDC PROVIDER
+# Tells AWS IAM to trust tokens issued by this EKS cluster.
+# Required for IRSA — without this, the trust policy has nothing to federate with.
+# ==============================================================================
+data "tls_certificate" "eks" {
+  url = aws_eks_cluster.basic_eks_cluster.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_openid_connect_provider" "oidc_provider" {
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.eks.certificates[0].sha1_fingerprint]
+  url             = aws_eks_cluster.basic_eks_cluster.identity[0].oidc[0].issuer
+
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-oidc-provider"
+  })
+}
