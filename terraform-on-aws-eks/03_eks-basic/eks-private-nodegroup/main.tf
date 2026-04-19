@@ -7,14 +7,15 @@ module "vpc" {
   name                    = local.name
   vpc_name                = local.vpc_name
   vpc_cidr_block          = var.vpc_cidr_block
+  cluster_name            = local.cluster_name
 
   public_subnets          = var.public_subnets
   private_subnets         = var.private_subnets
   database_subnets        = var.database_subnets
-  
+
   enable_nat_gateway      = var.enable_nat_gateway
   single_nat_gateway      = var.single_nat_gateway
-  
+
   common_tags             = local.common_tags
 }
 

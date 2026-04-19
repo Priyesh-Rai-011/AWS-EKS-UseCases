@@ -1,7 +1,7 @@
 locals {
-  name         = "eks-${var.environment}"
-  cluster_name = "eks-${var.environment}"
-  vpc_name     = "vpc-${var.environment}"
+  name         = var.environment
+  cluster_name = "eks-${local.name}"
+  vpc_name     = "vpc-${local.name}"
 
   common_tags = {
     Environment = var.environment

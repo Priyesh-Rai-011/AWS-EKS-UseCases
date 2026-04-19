@@ -124,7 +124,7 @@ resource "aws_eks_node_group" "private_node_group" {
   ]
 
   tags = merge(var.tags, {
-    Name                     = "${var.cluster_name}-public-node"
+    Name                     = "${var.cluster_name}-private-node"
     # "karpenter.sh/discovery" = var.cluster_name   # Karpenter uses this tag to find subnets and SGs
   })
 }
@@ -169,20 +169,26 @@ resource "aws_eks_addon" "ebs_csi_driver" {
   cluster_name                = aws_eks_cluster.basic_eks_cluster.name
   addon_name                  = "aws-ebs-csi-driver"
   addon_version               = "v1.45.0-eksbuild.2"
-  service_account_role_arn    = aws_iam_role.ebs_csi_driver_role.arn
   resolve_conflicts_on_update = "PRESERVE"
-
-  lifecycle {
-    ignore_changes = [service_account_role_arn]
-  }
 
   depends_on = [
     aws_eks_cluster.basic_eks_cluster,
     aws_eks_node_group.private_node_group,
     aws_iam_role_policy_attachment.ebs_csi_AmazonEBSCSIDriverPolicy,
+    aws_eks_pod_identity_association.ebs_csi,
   ]
 
   tags = var.tags
+}
+
+# Wire the EBS CSI role to the addon's service account via Pod Identity
+resource "aws_eks_pod_identity_association" "ebs_csi" {
+  cluster_name    = aws_eks_cluster.basic_eks_cluster.name
+  namespace       = "kube-system"
+  service_account = "ebs-csi-controller-sa"
+  role_arn        = aws_iam_role.ebs_csi_driver_role.arn
+
+  depends_on = [aws_eks_cluster.basic_eks_cluster]
 }
 
 # Enables kubectl top node/pod and Horizontal Pod Autoscaler

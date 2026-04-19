@@ -8,10 +8,10 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "learning-remotebackend"
+    bucket         = "learning-remotebackend2"
     key            = "terraform-on-aws-eks/eks-private-nodegroup/terraform.tfstate"
     region         = "ap-south-1"
-    dynamodb_table = "terraform-dev-state-table"
+    dynamodb_table = "learning-remotebackend"
     encrypt        = true
   }
 }

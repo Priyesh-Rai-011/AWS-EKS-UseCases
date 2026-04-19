@@ -37,3 +37,8 @@ variable "single_nat_gateway" {
   type    = bool
   default = false
 }
+
+variable "cluster_name" {
+  type        = string
+  description = "EKS cluster name — used for subnet discovery tags"
+}

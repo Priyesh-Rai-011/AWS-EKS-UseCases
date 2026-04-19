@@ -80,10 +80,10 @@ resource "aws_iam_role_policy_attachment" "node_AmazonSSMManagedInstanceCore" {
 
 # ==============================================================================
 # ROLE 3 — EBS CSI DRIVER ROLE
-# Assumed by: eks.amazonaws.com (on behalf of the EBS CSI addon)
+# Assumed by: EBS CSI controller pod via Pod Identity (pods.eks.amazonaws.com)
 # Used to: create and attach EBS volumes when pods request PersistentVolumeClaims
 # Separate from node role — only needs EBS permissions, nothing else
-# Wired to the addon via service_account_role_arn in main.tf
+# Wired via aws_eks_pod_identity_association in main.tf
 # ==============================================================================
 resource "aws_iam_role" "ebs_csi_driver_role" {
   name        = "${var.cluster_name}-ebs-csi-role"
@@ -93,8 +93,8 @@ resource "aws_iam_role" "ebs_csi_driver_role" {
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { Service = "eks.amazonaws.com" }
-      Action    = "sts:AssumeRole"
+      Principal = { Service = "pods.eks.amazonaws.com" }
+      Action    = ["sts:AssumeRole", "sts:TagSession"]
     }]
   })
 

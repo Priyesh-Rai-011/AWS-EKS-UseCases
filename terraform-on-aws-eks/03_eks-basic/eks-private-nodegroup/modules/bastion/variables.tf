@@ -33,7 +33,3 @@ variable "cluster_name" {
   # default = "dev"
 }
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-output "bastion_role_arn" {
-  description = "IAM role ARN attached to the bastion EC2 instance"
-  value       = aws_iam_role.bastion_ssm_role.arn
-}
