@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: ums-postgres
+    environment:
+      POSTGRES_DB: umsdb
+      POSTGRES_USER: umsuser
+      POSTGRES_PASSWORD: umspassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umsuser -d umsdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ums-app:
+    build:
+      context: ./ums-app
+      dockerfile: Dockerfile
+    container_name: ums-app
+    environment:
+      APP_PROFILE: dev
+      # dev profile reads localhost:5432 — override datasource URL for Docker networking
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/umsdb
+      SPRING_DATASOURCE_USERNAME: umsuser
+      SPRING_DATASOURCE_PASSWORD: umspassword
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
