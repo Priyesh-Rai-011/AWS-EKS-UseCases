@@ -1,0 +1,11 @@
+locals {
+  name         = "eks-private-${var.environment}"
+  cluster_name = "eks-private-${var.environment}"
+  vpc_name     = "vpc-${var.environment}"
+
+  common_tags = {
+    Environment = var.environment
+    Project     = "ums-ebs-csi"
+    ManagedBy   = "Terraform"
+  }
+}
