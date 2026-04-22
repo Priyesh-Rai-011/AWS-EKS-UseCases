@@ -93,7 +93,9 @@ resource "aws_iam_role" "ebs_csi_driver_role" {
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
-      Principal = { Service = "eks.amazonaws.com" }
+      Principal = { 
+        Service = "eks.amazonaws.com" 
+      }
       Action    = "sts:AssumeRole"
     }]
   })
