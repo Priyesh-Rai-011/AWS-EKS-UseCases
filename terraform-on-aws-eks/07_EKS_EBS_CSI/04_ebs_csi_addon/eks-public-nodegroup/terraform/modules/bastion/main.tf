@@ -108,10 +108,18 @@ resource "aws_instance" "bastion" {
     chmod +x kubectl
     mv kubectl /usr/local/bin/kubectl
 
-    # Configure kubeconfig
+    # Configure kubeconfig for root
     aws eks update-kubeconfig \
       --region ${var.aws_region} \
       --name ${var.cluster_name}
+
+    # Configure kubeconfig for ec2-user
+    mkdir -p /home/ec2-user/.kube
+    aws eks update-kubeconfig \
+      --region ${var.aws_region} \
+      --name ${var.cluster_name} \
+      --kubeconfig /home/ec2-user/.kube/config
+    chown -R ec2-user:ec2-user /home/ec2-user/.kube
 
     # Clone repo so manifests are available on the bastion
     git clone https://github.com/Priyesh-Rai-011/AWS-EKS-UseCases.git /home/ssm-user/eks-repo
