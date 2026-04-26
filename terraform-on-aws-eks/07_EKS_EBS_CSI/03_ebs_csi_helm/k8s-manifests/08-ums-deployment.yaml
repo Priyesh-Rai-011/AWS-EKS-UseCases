@@ -1,0 +1,59 @@
+# UMS Spring Boot app — 2 replicas because it's stateless, safe to run multiple instances
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ums-app
+  namespace: ums-app
+  labels:
+    app: ums-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ums-app
+  template:
+    metadata:
+      labels:
+        app: ums-app
+    spec:
+      containers:
+        - name: ums-app
+          image: priyeshrai711/ums-app:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - configMapRef:
+                name: ums-config   # APP_PROFILE and DB_URL
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_USER        # App connects as umsuser, not root
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-secret
+                  key: MYSQL_PASSWORD
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /api/users/health   # Pod won't receive traffic until this endpoint returns 200
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/users/health   # If this starts failing, Kubernetes restarts the container
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3

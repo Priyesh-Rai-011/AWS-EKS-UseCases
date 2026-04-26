@@ -1,0 +1,11 @@
+# UMS app runtime config — DB_URL uses the headless service name, Kubernetes DNS resolves it
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ums-config
+  namespace: ums-app
+  labels:
+    app: ums-app
+data:
+  APP_PROFILE: prod
+  DB_URL: jdbc:postgresql://postgres-svc:5432/umsdb

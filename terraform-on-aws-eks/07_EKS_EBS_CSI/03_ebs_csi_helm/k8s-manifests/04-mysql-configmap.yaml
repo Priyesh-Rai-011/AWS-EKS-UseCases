@@ -1,0 +1,10 @@
+# Non-sensitive MySQL config — just the DB name the server should initialize on first boot
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: ums-app
+  labels:
+    app: mysql
+data:
+  MYSQL_DATABASE: umsdb

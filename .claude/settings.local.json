@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m 'add 07_EKS_EBS_CSI/01_local_app: docker-compose for local postgres + app stack *)",
+      "Bash(git push *)",
+      "Bash(git commit -m 'add 07_EKS_EBS_CSI/01_local_app: multi-stage Dockerfile \\(Maven build -> JRE Alpine runtime\\) *)",
+      "Bash(git commit -m 'add 07_EKS_EBS_CSI/01_local_app: pom.xml - Spring Boot 3.3, JPA, Postgres, Lombok, Validation *)",
+      "Bash(git commit -m 'add 07_EKS_EBS_CSI/01_local_app: .gitignore for Maven/Java build artifacts *)",
+      "Bash(git commit -m 'add 07_EKS_EBS_CSI/01_local_app: UserRepository - Spring Data JPA with findByEmail and existsByEmail *)",
+      "Bash(grep -E '\\\\.\\(tf|yaml|yml\\)$')"
+    ]
+  }
+}

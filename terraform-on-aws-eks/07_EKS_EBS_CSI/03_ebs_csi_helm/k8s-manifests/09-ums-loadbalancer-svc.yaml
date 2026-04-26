@@ -1,0 +1,21 @@
+# The public entry point — AWS Load Balancer Controller reads these annotations and creates
+# an internet-facing ALB on AWS. Users hit port 80 on the ALB, traffic lands on port 8080 in the pod.
+apiVersion: v1
+kind: Service
+metadata:
+  name: ums-loadbalancer-svc
+  namespace: ums-app
+  labels:
+    app: ums-app
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+spec:
+  type: LoadBalancer
+  selector:
+    app: ums-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+      protocol: TCP

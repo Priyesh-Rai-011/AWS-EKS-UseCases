@@ -1,0 +1,20 @@
+# Headless service — required by StatefulSet as its governing service.
+# clusterIP: None gives each pod stable DNS: postgres-0.postgres-svc.ums-app.svc.cluster.local
+# UMS app connects to "postgres-svc:5432" and Kubernetes DNS resolves it correctly.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-svc
+  namespace: ums-app
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  clusterIP: None   # Headless — StatefulSet governing service requirement
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP

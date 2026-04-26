@@ -1,0 +1,8 @@
+# Isolating everything UMS-related under one roof so it doesn't bleed into other cluster workloads
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ums-app
+  labels:
+    app.kubernetes.io/managed-by: kubectl
+    environment: production

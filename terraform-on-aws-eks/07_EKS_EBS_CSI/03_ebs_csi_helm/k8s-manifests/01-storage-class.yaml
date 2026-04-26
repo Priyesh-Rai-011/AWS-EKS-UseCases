@@ -1,0 +1,16 @@
+# Tells AWS: "whenever someone asks for storage, carve out an encrypted GP3 EBS volume"
+# WaitForFirstConsumer is critical — EBS is AZ-specific, so we wait to see which AZ the MySQL pod
+# lands on before creating the volume. Otherwise the pod and disk could end up in different AZs.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-gp3-sc
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "false"
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain          # Volume survives PVC deletion — we don't want to lose DB data accidentally
+allowVolumeExpansion: true
+parameters:
+  type: gp3
+  encrypted: "true"

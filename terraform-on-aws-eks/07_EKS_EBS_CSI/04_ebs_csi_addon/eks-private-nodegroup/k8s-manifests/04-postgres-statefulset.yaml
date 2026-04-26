@@ -1,0 +1,77 @@
+# StatefulSet because Postgres is stateful — gives stable pod name (postgres-0),
+# and volumeClaimTemplates provisions a dedicated EBS volume per replica automatically.
+# A Deployment would break the moment you scale beyond 1 replica.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: ums-app
+  labels:
+    app: postgres
+spec:
+  serviceName: postgres-svc   # Must match the headless service in 05-postgres-service.yaml
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+              name: postgres
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+            - configMapRef:
+                name: postgres-config
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data   # Postgres data directory — backed by EBS
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - umsuser
+                - -d
+                - umsdb
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - umsuser
+                - -d
+                - umsdb
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+
+  # StatefulSet auto-creates PVC named postgres-data-postgres-0
+  # No separate PVC manifest needed.
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: ebs-gp3-sc
+        resources:
+          requests:
+            storage: 5Gi

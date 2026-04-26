@@ -1,0 +1,12 @@
+# Runtime config for the UMS Java app — note DB_URL uses "mysql-svc" (the Service name above),
+# not an IP. Kubernetes DNS resolves it automatically inside the cluster.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ums-config
+  namespace: ums-app
+  labels:
+    app: ums-app
+data:
+  APP_PROFILE: prod
+  DB_URL: jdbc:mysql://mysql-svc:3306/umsdb
