@@ -1,29 +1,54 @@
 #!/usr/bin/env bash
 # Deploy UMS stack to EKS — PUBLIC nodegroup
 #
-# Run from bastion via SSM:
-#   aws ssm start-session --target <bastion-instance-id> --region ap-south-1
-#   bash ~/eks-repo/terraform-on-aws-eks/07_EKS_EBS_CSI/04_ebs_csi_addon/eks-public-nodegroup/k8s-manifests/apply-all.sh
+# Prerequisites:
+#   1. AWS secret created (run once from local machine):
+#      aws secretsmanager create-secret \
+#        --name eks-public-dev/ums/postgres \
+#        --region ap-south-1 \
+#        --secret-string '{"POSTGRES_DB":"umsdb","POSTGRES_USER":"umsuser","POSTGRES_PASSWORD":"<password>"}'
+#
+#   2. Connect to bastion:
+#      aws ssm start-session --target <bastion-instance-id> --region ap-south-1
+#
+#   3. Run this script from the bastion
 
 set -euo pipefail
 
 MANIFESTS_DIR="${HOME}/eks-repo/terraform-on-aws-eks/07_EKS_EBS_CSI/04_ebs_csi_addon/eks-public-nodegroup/k8s-manifests"
 
+echo "==> Installing External Secrets Operator..."
+helm repo add external-secrets https://charts.external-secrets.io
+helm repo update
+helm upgrade --install external-secrets external-secrets/external-secrets \
+  --namespace external-secrets \
+  --create-namespace \
+  --wait
+
 echo "==> Deploying UMS stack (public nodegroup)"
 
 kubectl apply -f "${MANIFESTS_DIR}/00-namespace.yaml"
 kubectl apply -f "${MANIFESTS_DIR}/01-storageclass.yaml"
-kubectl apply -f "${MANIFESTS_DIR}/02-postgres-secret.yaml"
-kubectl apply -f "${MANIFESTS_DIR}/03-postgres-configmap.yaml"
-kubectl apply -f "${MANIFESTS_DIR}/04-postgres-statefulset.yaml"
-kubectl apply -f "${MANIFESTS_DIR}/05-postgres-service.yaml"
+kubectl apply -f "${MANIFESTS_DIR}/02-ums-serviceaccount.yaml"
+kubectl apply -f "${MANIFESTS_DIR}/03-postgres-secret-store.yaml"
+kubectl apply -f "${MANIFESTS_DIR}/04-postgres-externalsecret.yaml"
+
+echo "==> Waiting for ExternalSecret to sync postgres-secret from Secrets Manager..."
+kubectl wait externalsecret/postgres-external-secret \
+  -n ums-app \
+  --for=condition=Ready \
+  --timeout=120s
+
+kubectl apply -f "${MANIFESTS_DIR}/05-postgres-configmap.yaml"
+kubectl apply -f "${MANIFESTS_DIR}/06-postgres-statefulset.yaml"
+kubectl apply -f "${MANIFESTS_DIR}/07-postgres-service.yaml"
 
 echo "==> Waiting for postgres-0 to be ready..."
 kubectl rollout status statefulset/postgres -n ums-app --timeout=300s
 
-kubectl apply -f "${MANIFESTS_DIR}/06-ums-configmap.yaml"
-kubectl apply -f "${MANIFESTS_DIR}/07-ums-deployment.yaml"
-kubectl apply -f "${MANIFESTS_DIR}/08-ums-service.yaml"
+kubectl apply -f "${MANIFESTS_DIR}/08-ums-configmap.yaml"
+kubectl apply -f "${MANIFESTS_DIR}/09-ums-deployment.yaml"
+kubectl apply -f "${MANIFESTS_DIR}/10-ums-service.yaml"
 
 echo "==> Waiting for ums-app deployment to be ready..."
 kubectl rollout status deployment/ums-app -n ums-app --timeout=300s

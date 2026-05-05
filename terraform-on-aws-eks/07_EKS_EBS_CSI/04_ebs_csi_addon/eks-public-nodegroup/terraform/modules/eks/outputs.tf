@@ -22,3 +22,8 @@ output "node_role_arn" {
 output "node_group_status" {
   value = aws_eks_node_group.node_group.status
 }
+
+output "ums_app_role_arn" {
+  description = "IAM role ARN for ums-app pods — used by Pod Identity to access Secrets Manager"
+  value       = aws_iam_role.ums_app_role.arn
+}

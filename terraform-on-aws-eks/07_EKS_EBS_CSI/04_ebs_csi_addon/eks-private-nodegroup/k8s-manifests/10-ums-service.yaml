@@ -1,5 +1,4 @@
-# AWS Load Balancer Controller reads these annotations and provisions an internet-facing ALB.
-# Users hit port 80 on the ALB DNS, traffic forwards to port 8080 on the UMS pods.
+# Internet-facing ALB — AWS Load Balancer Controller provisions it via these annotations
 apiVersion: v1
 kind: Service
 metadata:

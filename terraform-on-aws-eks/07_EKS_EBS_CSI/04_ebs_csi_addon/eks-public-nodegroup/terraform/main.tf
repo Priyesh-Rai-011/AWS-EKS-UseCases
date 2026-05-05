@@ -1,3 +1,22 @@
+module "secrets" {
+  source = "./modules/secrets"
+
+  secrets = {
+    postgres = {
+      name          = "${local.cluster_name}/ums/postgres"
+      description   = "Postgres credentials for UMS app in ${local.cluster_name}"
+      secret_string = jsonencode({
+        POSTGRES_DB       = "umsdb"
+        POSTGRES_USER     = "umsuser"
+        POSTGRES_PASSWORD = var.postgres_password
+      })
+    }
+  }
+
+  recovery_window_in_days = 0
+  tags                    = local.common_tags
+}
+
 module "vpc" {
   source = "./modules/vpc"
 
@@ -39,5 +58,6 @@ module "eks" {
   endpoint_private_access = var.endpoint_private_access
   enable_cluster_logging  = var.enable_cluster_logging
   bastion_role_arn        = module.bastion.bastion_role_arn
+  postgres_secret_arn     = module.secrets.secret_arns["postgres"]
   tags                    = local.common_tags
 }

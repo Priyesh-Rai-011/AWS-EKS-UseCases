@@ -1,4 +1,4 @@
-# UMS Spring Boot app — stateless, safe to run 2 replicas behind the load balancer
+# UMS Spring Boot app — 2 replicas, stateless, uses ums-app-sa for Pod Identity → Secrets Manager
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,6 +16,7 @@ spec:
       labels:
         app: ums-app
     spec:
+      serviceAccountName: ums-app-sa   # Pod Identity uses this SA to assume the IAM role
       containers:
         - name: ums-app
           image: priyeshrai711/ums-app:latest
@@ -24,12 +25,12 @@ spec:
               name: http
           envFrom:
             - configMapRef:
-                name: ums-config   # APP_PROFILE and DB_URL
+                name: ums-config
           env:
             - name: DB_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: postgres-secret
+                  name: postgres-secret   # Synced from Secrets Manager by ExternalSecret (04)
                   key: POSTGRES_USER
             - name: DB_PASSWORD
               valueFrom:
@@ -45,7 +46,7 @@ spec:
               memory: "512Mi"
           readinessProbe:
             httpGet:
-              path: /api/users/health   # Pod won't receive traffic until this returns 200
+              path: /api/users/health
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 10

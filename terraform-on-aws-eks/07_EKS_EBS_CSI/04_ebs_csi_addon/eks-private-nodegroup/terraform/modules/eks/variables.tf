@@ -53,3 +53,8 @@ variable "tags" {
   type    = map(string)
   default = {}
 }
+
+variable "postgres_secret_arn" {
+  type        = string
+  description = "ARN of the Secrets Manager secret — IAM policy scoped to this exact resource"
+}

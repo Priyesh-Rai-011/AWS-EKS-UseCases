@@ -1,4 +1,4 @@
-# UMS app runtime config — DB_URL uses the headless service name, Kubernetes DNS resolves it
+# UMS app runtime config — DB_URL uses the headless service name
 apiVersion: v1
 kind: ConfigMap
 metadata:

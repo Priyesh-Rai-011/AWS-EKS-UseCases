@@ -95,3 +95,59 @@ resource "aws_iam_role_policy_attachment" "ebs_csi_AmazonEBSCSIDriverPolicy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
   role       = aws_iam_role.ebs_csi_driver_role.name
 }
+
+
+# ==============================================================================
+# ROLE 4 — UMS APP ROLE
+# Assumed via Pod Identity by the ums-app service account in the ums-app namespace.
+# Grants read-only access to the UMS Secrets Manager secret (DB credentials).
+# ==============================================================================
+resource "aws_iam_role" "ums_app_role" {
+  name        = "${var.cluster_name}-ums-app-role"
+  description = "Assumed by ums-app pods via Pod Identity to read DB credentials from Secrets Manager"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "pods.eks.amazonaws.com" }
+      Action    = ["sts:AssumeRole", "sts:TagSession"]
+    }]
+  })
+
+  tags = merge(var.tags, { Name = "${var.cluster_name}-ums-app-role" })
+}
+
+resource "aws_iam_policy" "ums_secrets_read" {
+  name        = "${var.cluster_name}-ums-secrets-read"
+  description = "Allows ums-app pods to read the postgres credentials secret"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:DescribeSecret"
+      ]
+      # Exact ARN from the secrets module — no wildcards, least-privilege
+      Resource = var.postgres_secret_arn
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ums_secrets_read" {
+  policy_arn = aws_iam_policy.ums_secrets_read.arn
+  role       = aws_iam_role.ums_app_role.name
+}
+
+# Wire ums-app ServiceAccount in ums-app namespace to the IAM role via Pod Identity
+resource "aws_eks_pod_identity_association" "ums_app" {
+  cluster_name    = aws_eks_cluster.this.name
+  namespace       = "ums-app"
+  service_account = "ums-app-sa"
+  role_arn        = aws_iam_role.ums_app_role.arn
+
+  depends_on = [aws_eks_addon.pod_identity_agent]
+}
+

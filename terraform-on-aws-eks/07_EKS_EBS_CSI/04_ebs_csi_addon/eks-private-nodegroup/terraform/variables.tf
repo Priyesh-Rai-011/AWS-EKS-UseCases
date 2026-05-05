@@ -65,3 +65,10 @@ variable "bastion_instance_type" {
   type    = string
   default = "t3.micro"
 }
+
+# ── SECRETS ───────────────────────────────────────────────────────────────────
+variable "postgres_password" {
+  type        = string
+  sensitive   = true
+  description = "Postgres password stored in Secrets Manager. Pass via -var flag or TF_VAR_postgres_password env var. Never put in tfvars."
+}
