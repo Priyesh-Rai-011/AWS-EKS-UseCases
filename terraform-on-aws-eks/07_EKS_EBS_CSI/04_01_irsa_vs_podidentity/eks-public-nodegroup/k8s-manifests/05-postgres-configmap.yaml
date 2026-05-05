@@ -1,0 +1,10 @@
+# Non-sensitive Postgres config — database name for server initialization
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: ums-app
+  labels:
+    app: postgres
+data:
+  POSTGRES_DB: umsdb
