@@ -1,7 +1,6 @@
 # UMS App on EKS — How Everything Connects
 
 9 files. One app. Here's how they chain together.
-
 ---
 
 ## File Map — Execution Order
