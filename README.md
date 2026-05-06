@@ -24,5 +24,3 @@ Get-Content "$sourceBase\bastian\main.tf" | Set-Content "$destBase\bastion\main.
 Get-Content "$sourceBase\bastian\variables.tf" | Set-Content "$destBase\bastion\variables.tf"
 Get-Content "$sourceBase\bastian\output.tf" | Set-Content "$destBase\bastion\outputs.tf"
 ```
-
-lets ake one change here
