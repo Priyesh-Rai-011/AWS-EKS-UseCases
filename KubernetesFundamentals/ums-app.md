@@ -21,7 +21,7 @@
 
 ---
 
-## The Storage Chain -
+## The Storage Chain
 
 StatefulSet handles PVC creation itself. No separate PVC manifest needed.
 
