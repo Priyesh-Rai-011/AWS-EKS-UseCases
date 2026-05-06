@@ -5,11 +5,7 @@ module "secrets" {
     postgres = {
       name          = "${local.cluster_name}/ums/postgres"
       description   = "Postgres credentials for UMS app in ${local.cluster_name}"
-      secret_string = jsonencode({
-        POSTGRES_DB       = "umsdb"
-        POSTGRES_USER     = "umsuser"
-        POSTGRES_PASSWORD = var.postgres_password
-      })
+      secret_string = "{}"  # placeholder — seed real value via: ./seed-secrets.sh or aws secretsmanager put-secret-value
     }
   }
 
