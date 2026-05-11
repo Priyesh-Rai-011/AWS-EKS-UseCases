@@ -24,6 +24,11 @@ output "node_group_status" {
 }
 
 output "ums_app_role_arn" {
-  description = "IAM role ARN for ums-app pods — used by Pod Identity to access Secrets Manager"
+  description = "IAM role ARN for ums-app pods — assumed via IRSA to access Secrets Manager"
   value       = aws_iam_role.ums_app_role.arn
+}
+
+output "oidc_provider_arn" {
+  description = "ARN of the OIDC provider — used for IRSA trust policies"
+  value       = aws_iam_openid_connect_provider.eks.arn
 }
