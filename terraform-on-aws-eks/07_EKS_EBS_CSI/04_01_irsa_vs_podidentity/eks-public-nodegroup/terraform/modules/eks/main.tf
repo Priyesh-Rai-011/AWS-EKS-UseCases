@@ -213,3 +213,33 @@ resource "aws_eks_access_policy_association" "bastion_admin" {
 
   depends_on = [aws_eks_access_entry.bastion]
 }
+
+
+# ==============================================================================
+# EKS ACCESS ENTRIES — Additional IAM users/roles (e.g. local dev, CI)
+# Add the ARN running terraform apply here so kubectl works from local machine
+# ==============================================================================
+resource "aws_eks_access_entry" "admins" {
+  for_each = toset(var.admin_iam_arns)
+
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = each.value
+  type          = "STANDARD"
+
+  depends_on = [aws_eks_cluster.this]
+  tags       = var.tags
+}
+
+resource "aws_eks_access_policy_association" "admins" {
+  for_each = toset(var.admin_iam_arns)
+
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = each.value
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.admins]
+}
