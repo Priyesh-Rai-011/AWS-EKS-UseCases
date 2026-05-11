@@ -1,0 +1,59 @@
+<div class="shell">
+  <header>
+    <h1>PulseAuth</h1>
+    <nav>
+      <button [class.active]="view==='users'" (click)="setView('users')">Users</button>
+      <button [class.active]="view==='register'" (click)="setView('register')">Register</button>
+      <button [class.active]="view==='verify'" (click)="setView('verify')">Verify OTP</button>
+    </nav>
+  </header>
+
+  <!-- USERS -->
+  <section *ngIf="view==='users'">
+    <div class="section-header">
+      <h2>Users</h2>
+      <button class="btn-secondary" (click)="loadUsers()">Refresh</button>
+    </div>
+    <p *ngIf="loadingUsers">Loading...</p>
+    <table *ngIf="!loadingUsers && users.length">
+      <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Verified</th><th></th></tr></thead>
+      <tbody>
+        <tr *ngFor="let u of users">
+          <td>{{ u.id }}</td>
+          <td>{{ u.name }}</td>
+          <td>{{ u.email }}</td>
+          <td><span [class]="u.verified ? 'badge-yes' : 'badge-no'">{{ u.verified ? 'Yes' : 'No' }}</span></td>
+          <td><button class="btn-danger" (click)="deleteUser(u.id)">Delete</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <p *ngIf="!loadingUsers && !users.length">No users found.</p>
+  </section>
+
+  <!-- REGISTER -->
+  <section *ngIf="view==='register'">
+    <h2>Register</h2>
+    <form (ngSubmit)="register()">
+      <label>Name<input [(ngModel)]="regName" name="name" required /></label>
+      <label>Email<input [(ngModel)]="regEmail" name="email" type="email" required /></label>
+      <button type="submit">Register</button>
+    </form>
+    <div class="alert-success" *ngIf="regMessage">
+      <p>{{ regMessage }}</p>
+      <p class="otp-display" *ngIf="regOtp">OTP: <strong>{{ regOtp }}</strong></p>
+    </div>
+    <div class="alert-error" *ngIf="regError">{{ regError }}</div>
+  </section>
+
+  <!-- VERIFY OTP -->
+  <section *ngIf="view==='verify'">
+    <h2>Verify OTP</h2>
+    <form (ngSubmit)="verify()">
+      <label>Email<input [(ngModel)]="verEmail" name="email" type="email" required /></label>
+      <label>OTP<input [(ngModel)]="verOtp" name="otp" required /></label>
+      <button type="submit">Verify</button>
+    </form>
+    <div class="alert-success" *ngIf="verMessage">{{ verMessage }}</div>
+    <div class="alert-error" *ngIf="verError">{{ verError }}</div>
+  </section>
+</div>
