@@ -58,3 +58,9 @@ variable "postgres_secret_arn" {
   type        = string
   description = "ARN of the Secrets Manager secret — IAM policy scoped to this exact resource"
 }
+
+variable "admin_iam_arns" {
+  type        = list(string)
+  description = "IAM user/role ARNs granted cluster-admin access — include the ARN running terraform apply"
+  default     = []
+}

@@ -55,5 +55,6 @@ module "eks" {
   enable_cluster_logging  = var.enable_cluster_logging
   bastion_role_arn        = module.bastion.bastion_role_arn
   postgres_secret_arn     = module.secrets.secret_arns["postgres"]
+  admin_iam_arns          = var.admin_iam_arns
   tags                    = local.common_tags
 }

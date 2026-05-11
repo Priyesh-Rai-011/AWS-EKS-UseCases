@@ -65,3 +65,10 @@ variable "bastion_instance_type" {
   type    = string
   default = "t3.micro"
 }
+
+# ── ACCESS ────────────────────────────────────────────────────────────────────
+variable "admin_iam_arns" {
+  type        = list(string)
+  description = "IAM user/role ARNs granted cluster-admin — include whoever runs terraform apply locally"
+  default     = []
+}

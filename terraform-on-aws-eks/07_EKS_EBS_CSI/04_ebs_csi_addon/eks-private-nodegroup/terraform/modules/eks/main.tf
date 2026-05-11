@@ -76,6 +76,22 @@ resource "aws_eks_cluster" "this" {
 
 
 # ==============================================================================
+# OIDC PROVIDER — Required for IRSA
+# ==============================================================================
+data "tls_certificate" "eks_oidc" {
+  url = aws_eks_cluster.this.identity[0].oidc[0].issuer
+}
+
+resource "aws_iam_openid_connect_provider" "eks" {
+  url             = aws_eks_cluster.this.identity[0].oidc[0].issuer
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.eks_oidc.certificates[0].sha1_fingerprint]
+
+  tags = merge(var.tags, { Name = "${var.cluster_name}-oidc-provider" })
+}
+
+
+# ==============================================================================
 # NODE GROUP — PRIVATE (nodes run in private subnets)
 # ==============================================================================
 resource "aws_eks_node_group" "node_group" {
@@ -212,4 +228,33 @@ resource "aws_eks_access_policy_association" "bastion_admin" {
   }
 
   depends_on = [aws_eks_access_entry.bastion]
+}
+
+
+# ==============================================================================
+# EKS ACCESS ENTRIES — Additional IAM users/roles (e.g. local dev, CI)
+# ==============================================================================
+resource "aws_eks_access_entry" "admins" {
+  for_each = toset(var.admin_iam_arns)
+
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = each.value
+  type          = "STANDARD"
+
+  depends_on = [aws_eks_cluster.this]
+  tags       = var.tags
+}
+
+resource "aws_eks_access_policy_association" "admins" {
+  for_each = toset(var.admin_iam_arns)
+
+  cluster_name  = aws_eks_cluster.this.name
+  principal_arn = each.value
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+
+  access_scope {
+    type = "cluster"
+  }
+
+  depends_on = [aws_eks_access_entry.admins]
 }
