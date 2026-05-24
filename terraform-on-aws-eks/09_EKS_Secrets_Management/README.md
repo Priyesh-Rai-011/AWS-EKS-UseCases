@@ -221,19 +221,4 @@ Pure K8s concepts (what a Secret is, etcd, RBAC, env vs volume mount) →
 
 ---
 
-## What this folder doesn't cover (yet)
-
-These are real production gaps. Not in scope here, but you'll hit every one of them.
-
-| Gap | What it is | Does it matter? |
-| --- | ---------- | --------------- |
-| **Secret rotation** | SM rotates the value via Lambda. Pod still holds old env var until restart — ESO re-syncs on `refreshInterval`, CSI re-mounts, but neither is zero-downtime without app-level connection pool refresh. | **High** — breaks apps silently in prod when password rotates under a live connection |
-| **KMS Customer Managed Key** | SM encrypts secrets with AWS-managed KMS by default. CMK = you own the key, control the key policy, can audit or disable it. One `kms_key_id` field in TF, but the key + policy setup is real work. | **Medium-High** — hard requirement for PCI-DSS, HIPAA, SOC2 |
-| **VPC Endpoint for Secrets Manager** | Today private-subnet pods reach SM via NAT GW → public internet. An Interface VPC Endpoint keeps traffic inside AWS backbone — no internet egress, lower cost, no NAT dependency. | **Medium** — cost + security, easy add to the VPC module |
-| **CloudTrail audit** | Every `GetSecretValue` call lands in CloudTrail automatically. Querying it meaningfully (who read which secret, from which role, when) requires Athena or CloudWatch Logs Insights. | **Low to set up, High to operate** — the data is there, the tooling is not |
-| **Sealed Secrets (GitOps pattern)** | Bitnami Sealed Secrets: encrypt a K8s Secret with the cluster's public key, commit the encrypted YAML to Git. Only decryptable inside the cluster. No external system needed — ESO alternative when SM isn't the requirement. | **Low here** — ESO covers the need. Relevant when GitOps is the constraint, not compliance |
-| **GitHub Actions OIDC → AWS** | GitHub OIDC federation: CI/CD gets short-lived STS tokens instead of long-lived access keys. No `AWS_ACCESS_KEY_ID` in GitHub Secrets. Required for `docker push` to ECR and `terraform apply` from Actions. | **High** — every automation step in this repo currently has no CI/CD IAM role |
-
----
-
 Start here → [`01_native_k8s_secrets/`](./01_native_k8s_secrets/)

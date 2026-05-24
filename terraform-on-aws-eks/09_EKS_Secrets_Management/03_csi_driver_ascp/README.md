@@ -10,20 +10,6 @@ That's what this folder solves.
 
 ---
 
-## Questions
-
-- [CSI for secrets? Isn't CSI the same driver used for EBS volumes?](#q1-csi-for-secrets-isnt-csi-the-same-driver-used-for-ebs-volumes)
-- [CSI driver vs ASCP — two separate Helm installs. Why?](#q2-csi-driver-vs-ascp--two-separate-helm-installs-why)
-- [What is SecretProviderClass? What does it define?](#q3-what-is-secretproviderclass-what-does-it-define)
-- [Full CSI flow — AWS SM to pod](#q4-full-csi-flow--aws-sm-to-pod)
-- [tmpfs — what is it and why does it matter?](#q5-tmpfs--what-is-it-and-why-does-it-matter)
-- [Why 1 consolidated SM secret instead of 3?](#q6-why-1-consolidated-sm-secret-instead-of-3)
-- [IRSA again — same pattern as ESO but different scope](#q7-irsa-again--same-pattern-as-eso-but-different-scope)
-- [`secretObjects` — feature or security compromise?](#q8-secretobjects--feature-or-security-compromise)
-- [The volume mount is not optional](#q9-the-volume-mount-is-not-optional)
-
----
-
 ## Folder structure
 
 ```text
@@ -163,30 +149,33 @@ Three sections:
 ## Q4. Full CSI flow — AWS SM to pod
 
 ```text
-  ┌──────────────────────────┐     ┌────────────────────────────────────────────────────┐
-  │  AWS Secrets Manager     │     │  Kubernetes (EKS)                                  │
-  │                          │     │                                                    │
-  │  eks-secrets-dev/        │     │  ┌──────────────────────────────────────────────┐ │
-  │    pulseauth/all    ──────┼─────┼─▶│  ASCP (AWS provider plugin)                 │ │
-  │    {                     │     │  │  IRSA JWT → STS → temp creds                │ │
-  │      DB_HOST,            │     │  │  GetSecretValue on exact ARN                 │ │
-  │      DB_PORT,            │     │  │  jmesPath extracts 14 keys                  │ │
-  │      DB_NAME,            │     │  └──────────────────┬───────────────────────────┘ │
-  │      DB_USER,            │     │                     │ hands to CSI driver          │
-  │      DB_PASSWORD,        │     │                     ▼                              │
-  │      REDIS_HOST,         │     │  ┌──────────────────────────────────────────────┐ │
-  │      REDIS_PORT,         │     │  │  secrets-store-csi-driver (generic)          │ │
-  │      REDIS_PASSWORD,     │     │  │  mounts files to pod tmpfs (RAM, no disk)    │ │
-  │      MAIL_HOST,          │     │  └──────┬──────────────────┬─────────────────────┘ │
-  │      MAIL_PORT,          │     │         │ /mnt/secrets/    │ secretObjects (opt.)  │
-  │      MAIL_USER,          │     │         │ (tmpfs, RAM only) │ pulseauth-secrets     │
-  │      MAIL_PASSWORD,      │     │         │                  ▼ (written to etcd)     │
-  │      MAIL_SMTP_AUTH,     │     │    ┌────┴─────┐     ┌───────────────────────────┐ │
-  │      MAIL_SMTP_TLS       │     │    │ postgres │     │  redis  │   pulseauth     │ │
-  │    }                     │     │    │ (vol.mnt)│     │ (vol.mnt│   (vol.mnt +    │ │
-  └──────────────────────────┘     │    └──────────┘     │  +envFr)│    envFrom)     │ │
-                                   │                     └─────────┴─────────────────┘ │
-                                   └────────────────────────────────────────────────────┘
+   AWS Secrets Manager          CSI Driver + ASCP           Pod filesystem          Pods
+   ───────────────────          ─────────────────           ──────────────          ────
+
+                                SecretProviderClass
+                                pulseauth-secrets-provider
+                                        │
+                                        │ IRSA JWT → STS → temp creds
+                                        │ (ServiceAccount: pulseauth)
+                                        │
+   eks-secrets-dev/                     │
+     pulseauth/all       ──────▶  jmesPath extracts ──────▶  tmpfs (RAM)
+     {                             14 keys                    /mnt/secrets-store/   ──▶  postgres StatefulSet
+       DB_HOST,                                               (never hits disk,           redis Deployment
+       DB_PORT,                                                gone when pod dies)         pulseauth Deployment
+       DB_NAME,                         │                                                  (volumeMount
+       DB_USER,                         │ secretObjects:                                    required on
+       DB_PASSWORD,                     ▼ (optional sync)                                   all pods)
+       REDIS_HOST,              pulseauth-secrets
+       REDIS_PORT,              (K8s Secret written          ──────────────────────▶  envFrom: all pods
+       REDIS_PASSWORD,           to etcd as side effect
+       MAIL_HOST,                of volume mount —
+       MAIL_PORT,                no mount = no secret)
+       MAIL_USER,
+       MAIL_PASSWORD,
+       MAIL_SMTP_AUTH,
+       MAIL_SMTP_TLS
+     }
 ```
 
 ---
@@ -195,14 +184,16 @@ Three sections:
 
 tmpfs is an in-memory filesystem. Files written to tmpfs live in RAM only. No disk write ever happens.
 
-| Property | Normal volume | tmpfs (CSI secrets mount) |
-| -------- | ------------- | ------------------------- |
-| Storage location | Node disk | RAM only |
-| Survives pod death | Yes — file stays on disk | No — memory released |
-| Disk snapshot exposure | Yes | No |
-| etcd involved | Yes (K8s Secret) | No (unless `secretObjects`) |
-| Forensic recovery possible | Yes | No |
-| App reads secret via | File path or env var | File path (or env var via `secretObjects`) |
+```text
+Normal volume mount:
+  secret value → written to node disk → mounted into pod → read by app
+  Risk: secret survives pod death on node's filesystem
+
+tmpfs mount:
+  secret value → written to RAM → mounted into pod → read by app
+  Pod dies → memory released → secret is gone
+  No forensic recovery. No disk snapshot exposure.
+```
 
 In the postgres StatefulSet manifest, the secrets-store volume is declared as CSI:
 
@@ -296,13 +287,19 @@ Every pod that needs secrets (`postgres`, `redis`, `pulseauth`) uses `serviceAcc
 
 This is how PulseAuth uses it in this folder. Every pod does `envFrom: secretRef: pulseauth-secrets` to get env vars. But `pulseauth-secrets` only exists because of `secretObjects`.
 
-| Property | WITHOUT `secretObjects` | WITH `secretObjects` (this folder) |
-| -------- | ----------------------- | ----------------------------------- |
-| Secret location | tmpfs only (`/mnt/secrets/db-password`) | tmpfs + etcd (K8s Secret `pulseauth-secrets`) |
-| App reads via | File: `File.read("/mnt/secrets/db-password")` | Env var: `System.getenv("DB_PASSWORD")` |
-| etcd involved | No ✅ | Yes ⚠️ |
-| Spring Boot changes needed | Yes — custom `PropertySource` for file mapping | No — reads env vars natively |
-| Compliance: zero etcd | Achievable | No — same as ESO |
+```text
+WITHOUT secretObjects:
+  secret lives in tmpfs only (/mnt/secrets/db-password is a file)
+  app must read files: File.read("/mnt/secrets/db-password")
+  etcd: NOT involved ✅
+  Spring Boot application.properties: needs PropertySource file mapping
+
+WITH secretObjects (this folder's approach):
+  secret lives in tmpfs AND is synced to K8s Secret
+  app reads env vars normally: System.getenv("DB_PASSWORD")
+  etcd: involved ⚠️  (same as ESO)
+  Spring Boot: no changes needed — reads env vars as normal
+```
 
 The tradeoff is explicit. This folder uses `secretObjects` because:
 
@@ -367,7 +364,7 @@ volumeMounts:
 ## IAM roles in this stack
 
 | Role | Assumed by | Permissions |
-| ---- | ---------- | ----------- |
+|------|-----------|-------------|
 | `eks-dev-cluster-role` | `eks.amazonaws.com` | EKS control plane operations |
 | `eks-dev-node-role` | `ec2.amazonaws.com` | Join cluster, pull ECR, SSM |
 | `pulseauth-ascp-role` | pulseauth SA via IRSA | `GetSecretValue` on exact ARN: `eks-secrets-dev/pulseauth/all`, `GetParameter` on `/eks-secrets-dev/pulseauth/*` |

@@ -8,20 +8,6 @@ ESO's answer: AWS Secrets Manager is the source of truth. The operator syncs sec
 
 ---
 
-## Questions
-
-- [Secret lives in AWS Secrets Manager. How does the pod prove it's allowed to read it?](#q1-secret-lives-in-aws-secrets-manager-how-does-the-pod-prove-its-allowed-to-read-it)
-- [What is IRSA actually doing?](#q2-what-is-irsa-actually-doing)
-- [What is ESO? What is it actually doing?](#q3-what-is-eso-what-is-it-actually-doing)
-- [Three new CRDs — what does each one do?](#q4-three-new-crds--what-does-each-one-do)
-- [Full ESO flow — AWS SM to pod env var](#q5-full-eso-flow--aws-sm-to-pod-env-var)
-- [Wait — ESO still writes a K8s Secret to etcd. Are we back to square one?](#q6-wait--eso-still-writes-a-k8s-secret-to-etcd-are-we-back-to-square-one)
-- [Why 3 separate SM secrets instead of 1?](#q7-why-3-separate-sm-secrets-instead-of-1)
-- [Why does Terraform create only the secret shell, with no value?](#q8-why-does-terraform-create-only-the-secret-shell-with-no-value)
-- [What happens during terraform destroy?](#q9-what-happens-during-terraform-destroy)
-
----
-
 ## Folder structure
 
 ```text
@@ -195,33 +181,33 @@ spec:
 ## Q5. Full ESO flow — AWS SM to pod env var
 
 ```text
-  ┌─────────────────────────────┐     ┌──────────────────────────────────────────┐
-  │  AWS Secrets Manager        │     │  Kubernetes (EKS)                        │
-  │                             │     │                                          │
-  │  eks-secrets-dev/           │     │  ┌──────────────────────────────────┐   │
-  │    pulseauth/postgres  ──────┼─────┼─▶│  ESO Controller                  │   │
-  │    pulseauth/redis     ──────┼─────┼─▶│  (external-secrets namespace)    │   │
-  │    pulseauth/mail      ──────┼─────┼─▶│                                  │   │
-  │                             │     │  │  IRSA JWT → STS → temp creds     │   │
-  │  (IRSA-authenticated        │     │  │  SecretStore: aws-secrets-manager │   │
-  │   CloudTrail-audited)       │     │  │  ExternalSecret × 3              │   │
-  └─────────────────────────────┘     │  └────────────────┬─────────────────┘   │
-                                      │                   │ creates/syncs        │
-                                      │                   ▼                      │
-                                      │  ┌──────────────────────────────────┐   │
-                                      │  │  etcd                            │   │
-                                      │  │  pulseauth-db-secret             │   │
-                                      │  │  pulseauth-redis-secret          │   │
-                                      │  │  pulseauth-mail-secret           │   │
-                                      │  └────────────────┬─────────────────┘   │
-                                      │                   │ envFrom              │
-                                      │        ┌──────────┼──────────┐          │
-                                      │        ▼          ▼          ▼          │
-                                      │  ┌──────────┐ ┌───────┐ ┌──────────┐  │
-                                      │  │ postgres │ │ redis │ │pulseauth │  │
-                                      │  │  (DB_*)  │ │(RED.*)│ │ (all 3)  │  │
-                                      │  └──────────┘ └───────┘ └──────────┘  │
-                                      └──────────────────────────────────────────┘
+   AWS Secrets Manager          ESO Controller              etcd                    Pods
+   ───────────────────          ──────────────              ────                    ────
+                                SecretStore
+                                aws-secrets-manager
+                                (namespace: pulseauth)
+                                        │
+                                        │ IRSA JWT → STS → temp creds
+                                        │
+   eks-secrets-dev/             ExternalSecret              pulseauth-db-secret
+     pulseauth/postgres  ──────▶ pulseauth-db-external  ──▶ DB_HOST                ──▶  postgres StatefulSet
+                                  -secret                    DB_PORT                      (envFrom)
+                                                             DB_NAME
+                                                             DB_USER
+                                                             DB_PASSWORD
+
+   eks-secrets-dev/             ExternalSecret              pulseauth-redis-secret
+     pulseauth/redis     ──────▶ pulseauth-redis-        ──▶ REDIS_HOST             ──▶  redis Deployment
+                                  external-secret             REDIS_PORT                   (envFrom)
+                                                             REDIS_PASSWORD
+
+   eks-secrets-dev/             ExternalSecret              pulseauth-mail-secret
+     pulseauth/mail      ──────▶ pulseauth-mail-         ──▶ MAIL_HOST              ──▶  pulseauth Deployment
+                                  external-secret             MAIL_PORT                    (envFrom:
+                                                             MAIL_USER                     all 3 secrets)
+                                                             MAIL_PASSWORD
+                                                             MAIL_SMTP_AUTH
+                                                             MAIL_SMTP_TLS
 ```
 
 ---
@@ -387,7 +373,7 @@ Fine for single app, one role       Required for scoped delegation
 ## IAM roles in this stack
 
 | Role | Assumed by | Permissions |
-| ---- | ---------- | ----------- |
+|------|-----------|-------------|
 | `eks-dev-cluster-role` | `eks.amazonaws.com` | EKS control plane operations |
 | `eks-dev-node-role` | `ec2.amazonaws.com` | Join cluster, pull ECR, SSM |
 | `external-secrets-operator-role` | ESO SA via IRSA | `GetSecretValue` on 3 exact SM ARNs, `GetParameter` on `/eks-secrets-dev/pulseauth/*` |
