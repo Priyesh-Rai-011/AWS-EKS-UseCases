@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 # ==============================================================================
 # ASCP IAM ROLE — AWS Secrets & Configuration Provider (CSI Driver)
 # Assumed by: the application pod via IRSA
@@ -50,7 +52,7 @@ resource "aws_iam_role_policy" "ascp_secrets_policy" {
           "secretsmanager:GetSecretValue",  # Fetch the secret payload
           "secretsmanager:DescribeSecret",  # Read metadata (rotation status, ARN, etc.)
         ]
-        Resource = "*"
+        Resource = var.secret_arns
       },
       {
         Sid    = "SSMParameterStoreRead"
@@ -60,7 +62,8 @@ resource "aws_iam_role_policy" "ascp_secrets_policy" {
           "ssm:GetParameters",           # Fetch multiple parameters by name list
           "ssm:GetParametersByPath",     # Fetch all parameters under a path prefix (e.g. /app/prod/)
         ]
-        Resource = "*"
+        # Scoped to the pulseauth path — wildcards match /eks-secrets-dev/pulseauth/<name>
+        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/eks-secrets-${var.environment}/pulseauth/*"
       }
     ]
   })

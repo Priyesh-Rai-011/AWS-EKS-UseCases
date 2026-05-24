@@ -20,6 +20,22 @@ variable "namespace" {
   default     = "pulseauth"
 }
 
+variable "aws_region" {
+  description = "AWS region — used to scope Secrets Manager resource ARN"
+  type        = string
+  default     = "ap-south-1"
+}
+
+variable "secret_arns" {
+  description = "Exact ARNs of Secrets Manager secrets ASCP is allowed to read — from module.secrets_manager outputs"
+  type        = list(string)
+}
+
+variable "environment" {
+  description = "Deployment environment (dev/staging/prod) — used to scope SSM parameter path"
+  type        = string
+}
+
 variable "tags" {
   type    = map(string)
   default = {}
