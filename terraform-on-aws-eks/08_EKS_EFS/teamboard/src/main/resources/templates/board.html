@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8"/>
+    <title>TeamBoard</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body class="board-page">
+
+<!-- ── Top bar ──────────────────────────────────────────────────────── -->
+<header class="topbar">
+    <div class="topbar-left">
+        <span class="brand-icon">📋</span>
+        <span class="brand-name">TeamBoard</span>
+        <span class="team-badge" th:text="${team}"></span>
+    </div>
+    <div class="topbar-right">
+        <span class="user-info">
+            👤 <strong th:text="${username}"></strong>
+        </span>
+        <form th:action="@{/logout}" method="post" style="display:inline;">
+            <button type="submit" class="btn btn-logout">Logout</button>
+        </form>
+    </div>
+</header>
+
+<!-- ── Pod banner (key for EFS demo) ────────────────────────────────── -->
+<div class="pod-banner">
+    🖥️ Pod: <code th:text="${podName}"></code>
+    &nbsp;|&nbsp;
+    📁 EFS: <code th:text="${efsMountPath}"></code>
+</div>
+
+<main class="board-main">
+
+    <!-- ── Error alerts ──────────────────────────────────────────────── -->
+    <div th:if="${param.error != null}" class="alert alert-error">
+        <span th:switch="${param.error[0]}">
+            <span th:case="'delete-not-allowed'">Cannot delete: post not found or not yours.</span>
+            <span th:case="'empty-title'">Title cannot be empty.</span>
+            <span th:case="'empty-message'">Message cannot be empty.</span>
+            <span th:case="'title-too-long'">Title must be 100 characters or less.</span>
+            <span th:case="'message-too-long'">Message must be 1000 characters or less.</span>
+            <span th:case="'invalid-title'">Title cannot contain newline characters.</span>
+            <span th:case="*">An error occurred. Please try again.</span>
+        </span>
+    </div>
+
+    <!-- ── New post form ──────────────────────────────────────────── -->
+    <section class="post-form-section">
+        <h2>Post to <span th:text="${team}"></span> board</h2>
+        <form th:action="@{/board/post}" method="post" class="post-form">
+            <div class="form-group">
+                <input type="text" name="title" placeholder="Title"
+                       maxlength="100" required/>
+            </div>
+            <div class="form-group">
+                <textarea name="message" placeholder="Write your update..."
+                          rows="3" maxlength="1000" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Post</button>
+        </form>
+    </section>
+
+    <!-- ── Posts list ─────────────────────────────────────────────── -->
+    <section class="posts-section">
+        <h2>Board Posts <span class="post-count" th:text="'(' + ${#lists.size(posts)} + ')'"></span></h2>
+
+        <div th:if="${#lists.isEmpty(posts)}" class="empty-state">
+            No posts yet. Be the first to post something!
+        </div>
+
+        <div class="posts-list">
+            <article th:each="post : ${posts}" class="post-card">
+                <div class="post-header">
+                    <span class="post-title" th:text="${post.title}"></span>
+                    <form th:if="${post.author == username}"
+                          th:action="@{/board/post/{id}/delete(id=${post.id})}"
+                          method="post" class="delete-form">
+                        <button type="submit" class="btn btn-delete"
+                                onclick="return confirm('Delete this post?')">✕</button>
+                    </form>
+                </div>
+                <div class="post-meta">
+                    <span class="post-author">👤 <strong th:text="${post.author}"></strong></span>
+                    <span class="post-time"
+                          th:text="${#temporals.format(post.createdAt, 'MMM dd, HH:mm')}"></span>
+                </div>
+                <div class="post-message" th:text="${post.message}"></div>
+            </article>
+        </div>
+    </section>
+
+</main>
+
+</body>
+</html>
