@@ -36,14 +36,6 @@ variable "node_max_size" {
   type    = number
   default = 3
 }
-variable "addon_versions" {
-  type    = map(string)
-  default = {}
-}
-variable "enable_node_taint" {
-  type    = bool
-  default = true
-}
 # =======================================================================================
 
 variable "endpoint_public_access" {

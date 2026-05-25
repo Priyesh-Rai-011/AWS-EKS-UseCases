@@ -8,7 +8,7 @@ output "public_subnet_ids" {
   value       = aws_subnet.public[*].id
 }
 output "public_subnet_cidrs" {
-  description = "value"
+  description = "CIDR blocks of public subnets — used by EKS PrivateLink SG ingress rule"
   value       = aws_subnet.public[*].cidr_block
 }
 

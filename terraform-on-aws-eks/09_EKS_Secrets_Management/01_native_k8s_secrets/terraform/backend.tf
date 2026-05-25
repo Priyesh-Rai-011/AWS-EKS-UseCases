@@ -5,12 +5,16 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    tls = {
+      source  = "hashicorp/tls"
+      version = "~> 4.0"
+    }
   }
 
   backend "s3" {
     bucket         = "learning-remotebackend2"
     key            = "terraform-on-aws-eks/09-secrets-01-native/terraform.tfstate"
-    region         = "us-east-1"
+    region         = "ap-south-1"
 
     dynamodb_table = "learning-remotebackend"
     encrypt        = true
