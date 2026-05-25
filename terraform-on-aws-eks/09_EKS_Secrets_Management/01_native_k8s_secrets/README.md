@@ -6,6 +6,17 @@ This folder uses it for PulseAuth (Spring Boot + Postgres + Redis + Mail). The g
 
 ---
 
+## Questions
+
+- [Why does `kind: Secret` exist separately from `kind: ConfigMap`?](#q1-why-does-kind-secret-exist-separately-from-kind-configmap)
+- [Is base64 encryption?](#q2-is-base64-encryption)
+- [Where does the secret physically live?](#q3-where-does-the-secret-physically-live)
+- [Who else in the cluster can read this secret?](#q4-who-else-in-the-cluster-can-read-this-secret)
+- [env var vs volume mount — which is safer?](#q5-env-var-vs-volume-mount--which-is-safer)
+- [What breaks in production with native secrets?](#q6-what-breaks-in-production-with-native-secrets)
+
+---
+
 ## Folder structure
 
 ```text
@@ -193,16 +204,26 @@ These are the exact problems ESO solves. Not because ESO is fashionable — beca
   kubectl create secret
           │
           ▼
-  API Server ──▶ etcd (base64, on disk)
-                        │
-                        ▼
-                 Kubelet (on node) ──▶ Pod env vars
-                                            │
-                              ┌─────────────┼─────────────┐
-                              ▼             ▼             ▼
-                         postgres        redis        pulseauth
-                        StatefulSet    Deployment    Deployment
-                        (DB_*)         (REDIS_*)     (DB_* + REDIS_* + MAIL_*)
+  ┌──────────────────────────────────────────────────────┐
+  │  Kubernetes Control Plane                             │
+  │                                                       │
+  │  API Server ──▶ etcd  (base64, on disk, no KMS)      │
+  └────────────────────────┬─────────────────────────────┘
+                           │  Kubelet reads on pod schedule
+                           ▼
+              ┌────────────────────────┐
+              │  Worker Node           │
+              │  Kubelet injects       │
+              │  env vars into pod     │
+              └────────────┬───────────┘
+                           │
+          ┌────────────────┼────────────────┐
+          ▼                ▼                ▼
+  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+  │  postgres    │  │  redis       │  │  pulseauth   │
+  │  StatefulSet │  │  Deployment  │  │  Deployment  │
+  │  (DB_*)      │  │  (REDIS_*)   │  │  (all 3)     │
+  └──────────────┘  └──────────────┘  └──────────────┘
 ```
 
 No AWS involved. No IRSA. No external tooling. Just `kubectl` and etcd.
@@ -275,7 +296,7 @@ Fresh EBS volume has a `lost+found` directory at the root. Postgres refuses to i
 
 → [`k8s-manifests/03-postgres-statefulset.yaml`](./k8s-manifests/03-postgres-statefulset.yaml)
 
-**Terraform destroy — EBS volume not deleted**
+### Terraform destroy — EBS volume not deleted
 
 PVC has `reclaimPolicy: Retain`. Terraform destroy removes the cluster but not the EBS volume. Check EC2 → Volumes in the AWS console and delete manually.
 
@@ -286,6 +307,7 @@ PVC has `reclaimPolicy: Retain`. Terraform destroy removes the cluster but not t
 Native K8s Secrets work. For a learning environment or non-sensitive config, they're fine.
 
 For production credentials:
+
 - Values live in etcd — cluster compromise = credential exposure
 - No audit trail — you don't know who read what
 - Rotation is fully manual
