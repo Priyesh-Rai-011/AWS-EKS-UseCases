@@ -4,7 +4,7 @@ module "vpc" {
   source = "./modules/01_vpc"
 
   # Matching vpc/variables.tf exactly
-  name           = local.name
+  name           = local.cluster_name
   vpc_name       = local.vpc_name
   vpc_cidr_block = var.vpc_cidr_block
 
@@ -46,7 +46,7 @@ module "bastion" {
   source = "./modules/03_bastion"
 
   # Matching bastion/variables.tf exactly
-  name          = "${local.name}-bastion"
+  name          = "${local.cluster_name}-bastion"
   vpc_id        = module.vpc.vpc_id
   subnet_id     = module.vpc.public_subnet_ids[0]
   instance_type = var.bastion_instance_type

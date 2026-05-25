@@ -1,77 +1,91 @@
 # =+=+=+=+=+=+=+=+=+=+=+=+=+=+
 
 variable "aws_region" {
-  type    = string
-  default = "us-east-1"
+  description = "AWS region to deploy all resources into"
+  type        = string
+  default     = "ap-south-1"
 }
 
 variable "environment" {
-  type    = string
-  default = "dev"
+  description = "Deployment environment (dev / staging / prod) — used in resource names and tags"
+  type        = string
+  default     = "dev"
 }
 
 # ── VPC ───────────────────────────────────────────────────────────────────────
 variable "vpc_cidr_block" {
-  type    = string
-  default = "10.1.0.0/16"
+  description = "CIDR block for the VPC"
+  type        = string
+  default     = "10.1.0.0/16"
 }
 
 variable "public_subnets" {
-  type    = list(string)
-  default = ["10.1.1.0/24", "10.1.2.0/24", "10.1.3.0/24"]
+  description = "CIDR blocks for public subnets — one per AZ, hosts NAT GW and LBs"
+  type        = list(string)
+  default     = ["10.1.1.0/24", "10.1.2.0/24", "10.1.3.0/24"]
 }
 
 variable "private_subnets" {
-  type    = list(string)
-  default = ["10.1.11.0/24", "10.1.12.0/24", "10.1.13.0/24"]
+  description = "CIDR blocks for private subnets — one per AZ, hosts EKS nodes"
+  type        = list(string)
+  default     = ["10.1.11.0/24", "10.1.12.0/24", "10.1.13.0/24"]
 }
 
 variable "database_subnets" {
-  type    = list(string)
-  default = ["10.1.21.0/24", "10.1.22.0/24", "10.1.23.0/24"]
+  description = "CIDR blocks for database subnets — isolated, no internet route"
+  type        = list(string)
+  default     = ["10.1.21.0/24", "10.1.22.0/24", "10.1.23.0/24"]
 }
 
 variable "enable_nat_gateway" {
-  type    = bool
-  default = true
+  description = "Whether to create a NAT Gateway for private subnet outbound traffic"
+  type        = bool
+  default     = true
 }
 
 variable "single_nat_gateway" {
-  type    = bool
-  default = true
+  description = "Use a single NAT Gateway across all AZs (cheaper for dev, not HA)"
+  type        = bool
+  default     = true
 }
 
 # ── EKS ───────────────────────────────────────────────────────────────────────
 variable "cluster_version" {
-  type    = string
-  default = "1.33"
+  description = "Kubernetes version for the EKS cluster"
+  type        = string
+  default     = "1.33"
 }
 
 variable "endpoint_public_access" {
-  type    = bool
-  default = true
+  description = "Enable public API endpoint — required when accessing cluster from outside VPC"
+  type        = bool
+  default     = true
 }
 
 variable "endpoint_private_access" {
-  type    = bool
-  default = true
+  description = "Enable private API endpoint — nodes use this to reach the control plane without leaving VPC"
+  type        = bool
+  default     = true
 }
 
 variable "enable_cluster_logging" {
-  type    = bool
-  default = false
+  description = "Send EKS control plane logs (api, audit, authenticator, etc.) to CloudWatch"
+  type        = bool
+  default     = false
 }
 
 # ── BASTION ───────────────────────────────────────────────────────────────────
 variable "bastion_instance_type" {
-  type    = string
-  default = "t3.micro"
+  description = "EC2 instance type for the bastion host"
+  type        = string
+  default     = "t3.micro"
 }
 
 # ── ECR ───────────────────────────────────────────────────────────────────────
 variable "ecr_repository_name" {
-  type    = string
-  default = "pulseauth"
+  description = "Name of the ECR repository to create for PulseAuth container images"
+  type        = string
+  default     = "pulseauth"
 }
 
 # ── ASCP ──────────────────────────────────────────────────────────────────────

@@ -75,3 +75,40 @@ resource "aws_iam_role_policy_attachment" "node_AmazonSSMManagedInstanceCore" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
   role       = aws_iam_role.eks_node_group_role.name
 }
+
+
+# ==============================================================================
+# ROLE 3 — EBS CSI DRIVER ROLE
+# Assumed by: the EBS CSI Driver addon via IRSA
+# Used to: create and attach EBS volumes when pods request PersistentVolumeClaims
+# Separate from node role — only needs EBS permissions, nothing else
+# Wired to the addon via service_account_role_arn in main.tf
+# ==============================================================================
+resource "aws_iam_role" "ebs_csi_driver_role" {
+  name        = "${var.cluster_name}-ebs-csi-role"
+  description = "Assumed by EBS CSI Driver addon to create and manage EBS volumes"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Federated = aws_iam_openid_connect_provider.oidc_provider.arn
+      }
+      Action = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringEquals = {
+          "${replace(aws_eks_cluster.basic_eks_cluster.identity[0].oidc[0].issuer, "https://", "")}:sub" = "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+          "${replace(aws_eks_cluster.basic_eks_cluster.identity[0].oidc[0].issuer, "https://", "")}:aud" = "sts.amazonaws.com"
+        }
+      }
+    }]
+  })
+
+  tags = merge(var.tags, { Name = "${var.cluster_name}-ebs-csi-role" })
+}
+
+resource "aws_iam_role_policy_attachment" "ebs_csi_AmazonEBSCSIDriverPolicy" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.ebs_csi_driver_role.name
+}

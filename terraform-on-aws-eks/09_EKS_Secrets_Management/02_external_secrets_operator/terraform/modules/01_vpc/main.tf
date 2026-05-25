@@ -26,7 +26,11 @@ resource "aws_subnet" "public" {
 
   map_public_ip_on_launch = true
 
-  tags = merge(var.common_tags, { Name = "${var.name}-public-subnet-${count.index + 1}", Type = "Public Subnets" })
+  tags = merge(var.common_tags, {
+    Name                     = "${var.name}-public-subnet-${count.index + 1}"
+    Type                     = "Public Subnets"
+    "kubernetes.io/role/elb" = "1"
+  })
 }
 
 # private subnet
@@ -36,7 +40,11 @@ resource "aws_subnet" "private" {
   cidr_block        = var.private_subnets[count.index]
   availability_zone = element(data.aws_availability_zones.available.names, count.index)
 
-  tags = merge(var.common_tags, { Name = "${var.name}-private-subnet-${count.index + 1}", Type = "Private Subnets" })
+  tags = merge(var.common_tags, {
+    Name                              = "${var.name}-private-subnet-${count.index + 1}"
+    Type                              = "Private Subnets"
+    "kubernetes.io/role/internal-elb" = "1"
+  })
 }
 
 # database subnet

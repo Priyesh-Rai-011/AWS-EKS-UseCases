@@ -58,7 +58,6 @@ resource "aws_iam_role_policy" "bastion_eks_ec2_policy" {
           "ec2:DescribeSubnets",
           "ec2:DescribeRouteTables",
           "ec2:DescribeSecurityGroups",
-          "ec2:AuthorizeSecurityGroupIngress",
           "elasticloadbalancing:DescribeLoadBalancers",
           "elasticloadbalancing:DescribeTargetGroups",
           "elasticloadbalancing:DescribeListeners"

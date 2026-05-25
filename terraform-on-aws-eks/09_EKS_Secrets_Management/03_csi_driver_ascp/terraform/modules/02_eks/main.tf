@@ -82,14 +82,14 @@ resource "aws_eks_node_group" "public_node_group" {
   node_role_arn   = aws_iam_role.eks_node_group_role.arn
   subnet_ids      = var.private_subnet_ids
 
-  instance_types = ["t3.medium"]
-  ami_type       = "AL2023_x86_64_STANDARD"
-  disk_size      = 20
+  instance_types = var.node_instance_types
+  ami_type       = var.node_ami_type
+  disk_size      = var.node_disk_size
 
-  scaling_config { # It automatically creates a auto scaling group ASG when we write this config
-    desired_size = 2
-    min_size     = 2
-    max_size     = 3
+  scaling_config {
+    desired_size = var.node_desired_size
+    min_size     = var.node_min_size
+    max_size     = var.node_max_size
   }
 
   update_config {
@@ -142,6 +142,23 @@ resource "aws_eks_addon" "kube_proxy" {
   resolve_conflicts_on_update = "PRESERVE"
   depends_on                  = [aws_eks_cluster.basic_eks_cluster]
   tags                        = var.tags
+}
+
+# Creates and attaches EBS volumes for PersistentVolumeClaims
+resource "aws_eks_addon" "ebs_csi_driver" {
+  cluster_name                = aws_eks_cluster.basic_eks_cluster.name
+  addon_name                  = "aws-ebs-csi-driver"
+  addon_version               = "v1.45.0-eksbuild.2"
+  service_account_role_arn    = aws_iam_role.ebs_csi_driver_role.arn
+  resolve_conflicts_on_update = "PRESERVE"
+
+  depends_on = [
+    aws_eks_cluster.basic_eks_cluster,
+    aws_eks_node_group.public_node_group,
+    aws_iam_role_policy_attachment.ebs_csi_AmazonEBSCSIDriverPolicy,
+  ]
+
+  tags = var.tags
 }
 
 

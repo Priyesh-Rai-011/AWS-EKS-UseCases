@@ -32,3 +32,8 @@ output "oidc_provider_url" {
   description = "OIDC issuer URL without https:// — used as condition key in trust policy"
   value       = trimprefix(aws_eks_cluster.basic_eks_cluster.identity[0].oidc[0].issuer, "https://")
 }
+
+output "ebs_csi_role_arn" {
+  description = "IAM role ARN for EBS CSI driver — passed to addon as service_account_role_arn"
+  value       = aws_iam_role.ebs_csi_driver_role.arn
+}

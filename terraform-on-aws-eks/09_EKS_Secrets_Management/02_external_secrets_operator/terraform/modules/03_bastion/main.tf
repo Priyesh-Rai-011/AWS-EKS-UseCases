@@ -17,23 +17,8 @@ resource "aws_iam_instance_profile" "bastion_instance_profile" {
 resource "aws_security_group" "bastion_sg" {
   name        = "${var.name}-bastion-sg"
   description = "Bastion host SG - no inbound needed, SSM uses outbound 443 only"
-  vpc_id      = var.vpc_id
-  ingress {
-    description      = "Allow HTTP traffic from anywhere"
-    from_port        = 80
-    to_port          = 80
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
-  ingress {
-    description      = "Allow HTTP traffic from anywhere"
-    from_port        = 8080
-    to_port          = 8080
-    protocol         = "tcp"
-    cidr_blocks      = ["0.0.0.0/0"]
-    ipv6_cidr_blocks = ["::/0"]
-  }
+  vpc_id = var.vpc_id
+  # No inbound rules — SSM agent calls OUT to AWS on 443, no inbound port needed
   egress {
     description = "Allow outbound HTTPS to reach AWS SSM and EKS endpoints"
     from_port   = 443
