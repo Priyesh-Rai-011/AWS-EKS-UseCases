@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>TeamBoard — Register</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body class="auth-page">
+
+<div class="auth-card">
+    <div class="brand">
+        <span class="brand-icon">📋</span>
+        <h1>TeamBoard</h1>
+        <p class="brand-sub">Create your account</p>
+    </div>
+
+    <div th:if="${error}" class="alert alert-error" th:text="${error}"></div>
+
+    <form th:action="@{/register}" method="post">
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username"
+                   placeholder="Letters, digits, _ or - (3-30 chars)"
+                   minlength="3" maxlength="30" pattern="[A-Za-z0-9_\-]{3,30}"
+                   required autofocus/>
+        </div>
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password"
+                   placeholder="Minimum 4 characters" minlength="4" required/>
+        </div>
+        <div class="form-group">
+            <label for="team">Team</label>
+            <select id="team" name="team" required>
+                <option value="">— Select your team —</option>
+                <option value="devops">devops</option>
+                <option value="qa">qa</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+    </form>
+
+    <p class="auth-link">Already have an account? <a th:href="@{/login}">Login</a></p>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,43 @@
+version: '3.9'
+
+services:
+
+  # ── Postgres ─────────────────────────────────────────────────────
+  # Locally:  named Docker volume  (simulates EBS in EKS)
+  postgres:
+    image: postgres:16-alpine
+    container_name: teamboard-postgres
+    environment:
+      POSTGRES_DB:       teamboard
+      POSTGRES_USER:     teamboard
+      POSTGRES_PASSWORD: teamboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data   # named volume = simulates EBS
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teamboard"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── TeamBoard app ─────────────────────────────────────────────────
+  # ./data bind mount = simulates EFS in local dev
+  teamboard:
+    build: .
+    container_name: teamboard-app
+    ports:
+      - "8080:8080"
+    environment:
+      DB_URL:          jdbc:postgresql://postgres:5432/teamboard
+      DB_USERNAME:     teamboard
+      DB_PASSWORD:     teamboard
+      EFS_MOUNT_PATH:  /mnt/efs
+    volumes:
+      - ./data:/mnt/efs    # bind mount — simulates EFS PVC in EKS
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:           # named volume — simulates EBS PVC in EKS
