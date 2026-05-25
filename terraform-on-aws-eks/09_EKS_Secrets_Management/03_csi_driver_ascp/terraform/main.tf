@@ -4,7 +4,7 @@ module "vpc" {
   source = "./modules/01_vpc"
 
   # Matching vpc/variables.tf exactly
-  name           = local.name
+  name           = local.cluster_name
   vpc_name       = local.vpc_name
   vpc_cidr_block = var.vpc_cidr_block
 
@@ -46,7 +46,7 @@ module "bastion" {
   source = "./modules/03_bastion"
 
   # Matching bastion/variables.tf exactly
-  name          = "${local.name}-bastion"
+  name          = "${local.cluster_name}-bastion"
   vpc_id        = module.vpc.vpc_id
   subnet_id     = module.vpc.public_subnet_ids[0]
   instance_type = var.bastion_instance_type
@@ -63,16 +63,28 @@ module "ecr" {
   common_tags     = local.common_tags
 }
 
+module "secrets_manager" {
+  source = "./modules/06_secrets_manager"
+
+  environment = var.environment
+  common_tags = local.common_tags
+}
+
 module "ascp_iam" {
   source = "./modules/05_ascp_iam"
 
   # OIDC values come from the EKS module output
-  oidc_provider_arn        = module.eks.oidc_provider_arn
-  oidc_provider_url        = module.eks.oidc_provider_url
+  oidc_provider_arn = module.eks.oidc_provider_arn
+  oidc_provider_url = module.eks.oidc_provider_url
+
+  # Exact ARN from secrets_manager module — no wildcard
+  secret_arns = [module.secrets_manager.pulseauth_all_secret_arn]
 
   # Service account that the ASCP workload pod will use
   service_account_name = var.ascp_service_account_name
   namespace            = var.ascp_namespace
 
-  tags = local.common_tags
+  environment = var.environment
+  aws_region  = var.aws_region
+  tags        = local.common_tags
 }

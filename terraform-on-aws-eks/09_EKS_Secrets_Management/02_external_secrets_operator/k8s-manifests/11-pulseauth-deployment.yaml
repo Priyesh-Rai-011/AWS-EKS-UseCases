@@ -1,0 +1,52 @@
+# PulseAuth Spring Boot app — envFrom all 3 ESO-synced secrets (db, redis, mail)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulseauth
+  namespace: pulseauth
+  labels:
+    app: pulseauth
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pulseauth
+  template:
+    metadata:
+      labels:
+        app: pulseauth
+    spec:
+      containers:
+        - name: pulseauth
+          image: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/pulseauth:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - secretRef:
+                name: pulseauth-db-secret
+            - secretRef:
+                name: pulseauth-redis-secret
+            - secretRef:
+                name: pulseauth-mail-secret
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /api/users/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/users/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3

@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 # ==============================================================================
 # ESO IAM ROLE — External Secrets Operator
 # Assumed by: the ESO controller pod via IRSA
@@ -49,7 +51,7 @@ resource "aws_iam_role_policy" "eso_secrets_policy" {
           "secretsmanager:GetSecretValue",  # Fetch the secret payload
           "secretsmanager:DescribeSecret",  # Read metadata (rotation status, ARN, etc.)
         ]
-        Resource = "*"
+        Resource = var.secret_arns
       },
       {
         Sid    = "SSMParameterStoreRead"
@@ -58,7 +60,8 @@ resource "aws_iam_role_policy" "eso_secrets_policy" {
           "ssm:GetParameter",    # Fetch a single parameter by name
           "ssm:GetParameters",   # Fetch multiple parameters by name list
         ]
-        Resource = "*"
+        # Scoped to the pulseauth path — wildcards match /eks-secrets-dev/pulseauth/<name>
+        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/eks-secrets-${var.environment}/pulseauth/*"
       }
     ]
   })

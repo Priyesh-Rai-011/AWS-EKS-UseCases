@@ -1,0 +1,18 @@
+# Headless service — StatefulSet governing service, gives postgres-0 stable DNS
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-svc
+  namespace: pulseauth
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+      protocol: TCP

@@ -1,0 +1,62 @@
+# PulseAuth Spring Boot app — CSI Secrets Store volume mount triggers secret fetch.
+# secretObjects in SecretProviderClass syncs values into k8s Secret "pulseauth-secrets"
+# which is consumed via envFrom. The volume MUST be mounted for the sync to work.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulseauth
+  namespace: pulseauth
+  labels:
+    app: pulseauth
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: pulseauth
+  template:
+    metadata:
+      labels:
+        app: pulseauth
+    spec:
+      serviceAccountName: pulseauth
+      containers:
+        - name: pulseauth
+          image: ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/pulseauth:latest
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - secretRef:
+                name: pulseauth-secrets
+          volumeMounts:
+            - name: secrets-store
+              mountPath: /mnt/secrets
+              readOnly: true
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /api/users/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/users/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 15
+            failureThreshold: 3
+      volumes:
+        - name: secrets-store
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: pulseauth-secrets-provider
