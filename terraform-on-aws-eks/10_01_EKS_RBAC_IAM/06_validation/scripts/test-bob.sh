@@ -3,7 +3,7 @@
 # Expected: cluster-wide read, logs YES, exec NO, rollout YES, secrets NO
 set -euo pipefail
 
-ROLE_ARN=${1:-"$(terraform -chdir=../terraform output -json iam_role_arns | jq -r '.devops')"}
+ROLE_ARN=${1:-"$(terraform -chdir=../terraform output -json persona_role_arns | jq -r '.devops')"}
 CLUSTER=$(terraform -chdir=../terraform output -raw cluster_name)
 REGION="ap-south-1"
 

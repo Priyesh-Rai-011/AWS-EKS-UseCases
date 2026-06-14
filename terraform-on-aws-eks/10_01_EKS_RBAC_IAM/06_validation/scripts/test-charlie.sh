@@ -3,7 +3,7 @@
 # Expected: exec YES in backend-prod, frontend-prod DENIED entirely, secrets NO
 set -euo pipefail
 
-ROLE_ARN=${1:-"$(terraform -chdir=../terraform output -json iam_role_arns | jq -r '.backend_dev_admin')"}
+ROLE_ARN=${1:-"$(terraform -chdir=../terraform output -json persona_role_arns | jq -r '.backend_dev_admin')"}
 CLUSTER=$(terraform -chdir=../terraform output -raw cluster_name)
 REGION="ap-south-1"
 
