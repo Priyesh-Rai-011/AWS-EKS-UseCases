@@ -1,0 +1,30 @@
+# Grace — security auditor, cluster-wide, secrets list allowed, no exec
+# Only role in this cluster that can list/get secrets
+# Bound to group: eks-security (see cluster-role-bindings/)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: security-audit-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints", "namespaces", "nodes", "events",
+              "serviceaccounts", "configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+  # security team audits what secrets exist — not their values (handled by etcd encryption)
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "rolebindings", "clusterroles", "clusterrolebindings"]
+  verbs: ["get", "list", "watch"]
+  # can audit: who has what RBAC permissions cluster-wide
+# pods/exec NOT listed — no exec

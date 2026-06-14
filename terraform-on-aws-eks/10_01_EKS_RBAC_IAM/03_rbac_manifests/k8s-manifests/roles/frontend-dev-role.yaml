@@ -1,0 +1,20 @@
+# Eve — frontend-prod namespace only, read + logs only
+# Bound to group: eks-frontend-devs (see role-bindings/)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: frontend-dev-role
+  namespace: frontend-prod
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+# pods/exec NOT listed — no exec
+# secrets NOT listed — no access
+# backend-prod → DENIED (Role scoped to frontend-prod only)
