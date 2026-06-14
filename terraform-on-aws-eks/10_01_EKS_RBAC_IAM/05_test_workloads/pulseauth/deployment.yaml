@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulseauth
+  namespace: backend-prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pulseauth
+  template:
+    metadata:
+      labels:
+        app: pulseauth
+    spec:
+      serviceAccountName: pulseauth-sa
+      containers:
+      - name: pulseauth
+        image: PLACEHOLDER_ECR_REPO_URL:latest
+        # Replace with: terraform output -raw ecr_repository_url
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:postgresql://postgres-svc.backend-prod.svc.cluster.local:5432/$(POSTGRES_DB)
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: pulseauth-postgres-secret
+              key: POSTGRES_USER
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pulseauth-postgres-secret
+              key: POSTGRES_PASSWORD
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: pulseauth-postgres-secret
+              key: POSTGRES_DB
+        readinessProbe:
+          httpGet:
+            path: /api/users/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /api/users/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 15

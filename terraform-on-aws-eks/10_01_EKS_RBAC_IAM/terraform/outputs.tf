@@ -1,31 +1,43 @@
 output "cluster_name" {
-  description = "EKS cluster name (from remote state)"
-  value       = local.cluster_name
+  value = module.eks.cluster_name
 }
 
-output "iam_role_arns" {
-  description = "All IAM role ARNs created for RBAC testing"
-  value = {
-    cluster_admin    = aws_iam_role.cluster_admin.arn
-    devops_admin     = aws_iam_role.devops_admin.arn
-    devops           = aws_iam_role.devops.arn
-    backend_dev_admin = aws_iam_role.backend_dev_admin.arn
-    backend_dev      = aws_iam_role.backend_dev.arn
-    frontend_dev     = aws_iam_role.frontend_dev.arn
-    readonly         = aws_iam_role.readonly.arn
-    security         = aws_iam_role.security.arn
-  }
+output "ssm_connect_command" {
+  description = "Connect to bastion via SSM"
+  value       = module.bastion.ssm_connect_command
 }
 
-output "assume_role_commands" {
-  description = "STS assume-role commands for each persona"
-  value = {
-    alice   = "aws sts assume-role --role-arn ${aws_iam_role.devops_admin.arn} --role-session-name alice"
-    bob     = "aws sts assume-role --role-arn ${aws_iam_role.devops.arn} --role-session-name bob"
-    charlie = "aws sts assume-role --role-arn ${aws_iam_role.backend_dev_admin.arn} --role-session-name charlie"
-    dave    = "aws sts assume-role --role-arn ${aws_iam_role.backend_dev.arn} --role-session-name dave"
-    eve     = "aws sts assume-role --role-arn ${aws_iam_role.frontend_dev.arn} --role-session-name eve"
-    frank   = "aws sts assume-role --role-arn ${aws_iam_role.devops.arn} --role-session-name frank"
-    grace   = "aws sts assume-role --role-arn ${aws_iam_role.security.arn} --role-session-name grace"
-  }
+output "kubectl_config_command" {
+  description = "Run this to configure kubectl"
+  value       = "aws eks update-kubeconfig --name ${local.cluster_name} --region ${var.aws_region}"
+}
+
+output "ecr_repository_url" {
+  description = "Push PulseAuth image here before deploying"
+  value       = module.ecr.repository_url
+}
+
+output "eso_irsa_role_arn" {
+  description = "Paste into 05_test_workloads/pulseauth/serviceaccount.yaml"
+  value       = module.eso_iam.role_arn
+}
+
+output "persona_role_arns" {
+  description = "STS assume-role ARNs for each persona (use in 06_validation scripts)"
+  value       = module.rbac_personas.role_arns
+}
+
+output "frontend_bucket_name" {
+  description = "Run: aws s3 sync dist/pulseauth/ s3://<bucket>/"
+  value       = module.frontend_s3.bucket_name
+}
+
+output "frontend_website_url" {
+  description = "Angular app endpoint after s3 sync"
+  value       = module.frontend_s3.website_url
+}
+
+output "postgres_secret_name" {
+  description = "Seed this via: aws secretsmanager put-secret-value --secret-id <name>"
+  value       = module.secrets_manager.postgres_secret_name
 }

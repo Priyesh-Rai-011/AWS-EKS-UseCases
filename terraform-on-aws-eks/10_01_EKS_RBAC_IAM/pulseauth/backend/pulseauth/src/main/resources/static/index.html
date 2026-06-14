@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>PulseAuth</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:system-ui,sans-serif;background:#f0f2f5;min-height:100vh;display:flex;align-items:center;justify-content:center}
+  .card{background:#fff;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.1);padding:40px;width:100%;max-width:420px}
+  h1{font-size:1.8rem;color:#1a1a2e;margin-bottom:4px}
+  .subtitle{color:#888;font-size:.9rem;margin-bottom:28px}
+  .tabs{display:flex;gap:0;margin-bottom:24px;border-radius:8px;overflow:hidden;border:2px solid #4361ee}
+  .tab{flex:1;padding:10px;text-align:center;cursor:pointer;font-weight:600;color:#4361ee;background:#fff;border:none;font-size:.95rem;transition:all .2s}
+  .tab.active{background:#4361ee;color:#fff}
+  .view{display:none}
+  .view.active{display:block}
+  label{display:block;font-size:.82rem;font-weight:600;color:#555;margin-bottom:4px;margin-top:14px}
+  input{width:100%;padding:10px 12px;border:1.5px solid #ddd;border-radius:7px;font-size:1rem;outline:none;transition:border .2s}
+  input:focus{border-color:#4361ee}
+  .btn{width:100%;padding:11px;background:#4361ee;color:#fff;border:none;border-radius:7px;font-size:1rem;font-weight:600;cursor:pointer;margin-top:20px;transition:background .2s}
+  .btn:hover{background:#3251d3}
+  .alert{margin-top:16px;padding:12px 14px;border-radius:7px;font-size:.9rem}
+  .alert.success{background:#d1fae5;color:#065f46}
+  .alert.error{background:#fee2e2;color:#991b1b}
+  .profile{text-align:center}
+  .profile .avatar{width:70px;height:70px;border-radius:50%;background:#4361ee;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#fff;margin:0 auto 16px}
+  .profile h2{font-size:1.4rem;color:#1a1a2e;margin-bottom:20px}
+  .profile table{width:100%;border-collapse:collapse;text-align:left}
+  .profile td{padding:10px 8px;border-bottom:1px solid #f0f0f0;font-size:.95rem}
+  .profile td:first-child{font-weight:600;color:#888;width:90px;font-size:.82rem;text-transform:uppercase}
+  .logout{margin-top:20px;width:100%;padding:10px;background:#fff;border:2px solid #4361ee;color:#4361ee;border-radius:7px;font-weight:600;cursor:pointer;font-size:.95rem}
+  .logout:hover{background:#4361ee;color:#fff}
+  .otp-note{background:#fffbeb;border:1px solid #fcd34d;border-radius:7px;padding:12px;margin-top:14px;font-size:.85rem;color:#92400e}
+  .otp-note a{color:#4361ee;font-weight:600}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>PulseAuth</h1>
+  <p class="subtitle">Secrets Management Demo</p>
+
+  <!-- AUTH TABS -->
+  <div id="authSection">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('login')">Login</button>
+      <button class="tab" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div id="loginView" class="view active">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="you@example.com"/>
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="••••••••"/>
+      <button class="btn" onclick="login()">Login</button>
+      <div id="loginAlert"></div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div id="signupView" class="view">
+      <div id="signupForm">
+        <label>Name</label>
+        <input type="text" id="signupName" placeholder="Your name"/>
+        <label>Email</label>
+        <input type="email" id="signupEmail" placeholder="you@example.com"/>
+        <label>Password</label>
+        <input type="password" id="signupPassword" placeholder="••••••••"/>
+        <button class="btn" onclick="signup()">Create Account</button>
+        <div id="signupAlert"></div>
+      </div>
+      <div id="otpForm" style="display:none">
+        <div class="otp-note">
+          OTP sent to your email. Check <a href="http://localhost:8025" target="_blank">Mailhog inbox</a>.
+        </div>
+        <label>Enter OTP</label>
+        <input type="text" id="otpInput" placeholder="6-digit code" maxlength="6"/>
+        <button class="btn" onclick="verifyOtp()">Verify OTP</button>
+        <div id="otpAlert"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROFILE -->
+  <div id="profileSection" style="display:none" class="profile">
+    <div class="avatar" id="avatarLetter"></div>
+    <h2 id="profileName"></h2>
+    <table>
+      <tr><td>Name</td><td id="pName"></td></tr>
+      <tr><td>Email</td><td id="pEmail"></td></tr>
+      <tr><td>Password</td><td id="pPassword"></td></tr>
+    </table>
+    <button class="logout" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:8080/api/users';
+let pendingEmail = '';
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (tab==='login'&&i===0)||(tab==='signup'&&i===1)));
+  document.getElementById('loginView').classList.toggle('active', tab==='login');
+  document.getElementById('signupView').classList.toggle('active', tab==='signup');
+}
+
+function showAlert(id, msg, type) {
+  const el = document.getElementById(id);
+  el.innerHTML = `<div class="alert ${type}">${msg}</div>`;
+}
+
+async function login() {
+  const email = document.getElementById('loginEmail').value;
+  const password = document.getElementById('loginPassword').value;
+  try {
+    const r = await fetch(`${API}/login`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password})});
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.message || 'Login failed');
+    showProfile(data);
+  } catch(e) { showAlert('loginAlert', e.message, 'error'); }
+}
+
+async function signup() {
+  const name = document.getElementById('signupName').value;
+  const email = document.getElementById('signupEmail').value;
+  const password = document.getElementById('signupPassword').value;
+  try {
+    const r = await fetch(`${API}/signup`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name, email, password})});
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.message || 'Signup failed');
+    pendingEmail = email;
+    document.getElementById('signupForm').style.display = 'none';
+    document.getElementById('otpForm').style.display = 'block';
+  } catch(e) { showAlert('signupAlert', e.message, 'error'); }
+}
+
+async function verifyOtp() {
+  const otp = document.getElementById('otpInput').value;
+  try {
+    const r = await fetch(`${API}/verify-otp`, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email: pendingEmail, otp})});
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.message || 'Verification failed');
+    showAlert('otpAlert', 'Verified! Switching to login...', 'success');
+    setTimeout(() => { switchTab('login'); document.getElementById('loginEmail').value = pendingEmail; document.getElementById('otpForm').style.display='none'; document.getElementById('signupForm').style.display='block'; }, 1500);
+  } catch(e) { showAlert('otpAlert', e.message, 'error'); }
+}
+
+function showProfile(user) {
+  document.getElementById('authSection').style.display = 'none';
+  document.getElementById('profileSection').style.display = 'block';
+  document.getElementById('avatarLetter').textContent = user.name.charAt(0).toUpperCase();
+  document.getElementById('profileName').textContent = 'Welcome, ' + user.name;
+  document.getElementById('pName').textContent = user.name;
+  document.getElementById('pEmail').textContent = user.email;
+  document.getElementById('pPassword').textContent = user.password;
+}
+
+function logout() {
+  document.getElementById('authSection').style.display = 'block';
+  document.getElementById('profileSection').style.display = 'none';
+  switchTab('login');
+}
+</script>
+</body>
+</html>
