@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pulseauth
+  namespace: backend-prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pulseauth
+  template:
+    metadata:
+      labels:
+        app: pulseauth
+    spec:
+      serviceAccountName: pulseauth-sa
+      containers:
+      - name: pulseauth
+        image: 183295435445.dkr.ecr.ap-south-1.amazonaws.com/pulseauth:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: pulseauth-postgres-secret
+              key: POSTGRES_DB
+        - name: SPRING_DATASOURCE_URL
+          value: jdbc:postgresql://postgres-svc.backend-prod.svc.cluster.local:5432/$(POSTGRES_DB)
+        - name: SPRING_DATASOURCE_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: pulseauth-postgres-secret
+              key: POSTGRES_USER
+        - name: SPRING_DATASOURCE_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pulseauth-postgres-secret
+              key: POSTGRES_PASSWORD
+        - name: REDIS_HOST
+          value: redis-svc.backend-prod.svc.cluster.local
+        - name: REDIS_PORT
+          value: "6379"
+        - name: MAIL_HOST
+          valueFrom:
+            secretKeyRef:
+              name: pulseauth-mail-secret
+              key: MAIL_HOST
+        - name: MAIL_USER
+          valueFrom:
+            secretKeyRef:
+              name: pulseauth-mail-secret
+              key: MAIL_USER
+        - name: MAIL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: pulseauth-mail-secret
+              key: MAIL_PASS
+        - name: MAIL_PORT
+          value: "587"
+        - name: MAIL_SMTP_AUTH
+          value: "true"
+        - name: MAIL_SMTP_TLS
+          value: "true"
+        readinessProbe:
+          httpGet:
+            path: /api/users/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /api/users/health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 15

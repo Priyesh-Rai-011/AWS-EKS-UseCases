@@ -1,0 +1,16 @@
+# Readonly — cluster-wide, list/get only, no logs, no exec, no secrets
+# Bound to group: eks-readonly (see cluster-role-bindings/)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: readonly-cluster-role
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "endpoints", "namespaces", "nodes", "events"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets", "statefulsets", "daemonsets"]
+  verbs: ["get", "list", "watch"]
+# pods/log NOT listed — no log access
+# pods/exec NOT listed — no exec
+# secrets NOT listed — no access

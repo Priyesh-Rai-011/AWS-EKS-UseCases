@@ -1,0 +1,22 @@
+# Eve — frontend dev, readonly in backend-prod
+# Angular frontend runs on S3 (not k8s) — no frontend-prod namespace exists
+# Eve needs to see if the backend API is up and read logs. Nothing else.
+# Bound to group: eks-frontend-devs (see role-bindings/)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: frontend-dev-role
+  namespace: backend-prod
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services", "configmaps", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets"]
+  verbs: ["get", "list", "watch"]
+# pods/exec NOT listed — no exec
+# secrets NOT listed — zero access to secrets
+# create/update/patch/delete NOT listed — purely readonly

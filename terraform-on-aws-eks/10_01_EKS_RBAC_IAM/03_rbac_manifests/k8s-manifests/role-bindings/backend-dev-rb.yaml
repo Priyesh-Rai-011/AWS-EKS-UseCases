@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backend-dev-rb
+  namespace: backend-prod       # scoped — only covers backend-prod
+subjects:
+- kind: Group
+  name: eks-backend-devs        # must match kubernetes_groups in access_entries.tf
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: backend-dev-role
+  apiGroup: rbac.authorization.k8s.io
