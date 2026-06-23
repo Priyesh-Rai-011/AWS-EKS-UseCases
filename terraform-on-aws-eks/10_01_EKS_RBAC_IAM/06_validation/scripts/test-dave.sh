@@ -3,23 +3,12 @@
 # Expected: logs YES, exec NO, rollout YES, secrets NO, frontend DENIED
 set -euo pipefail
 
-ROLE_ARN=${1:-"$(terraform -chdir=../terraform output -json persona_role_arns | jq -r '.backend_dev')"}
-CLUSTER=$(terraform -chdir=../terraform output -raw cluster_name)
+export AWS_PROFILE=dave
+CLUSTER="eks-rbac-dev"
 REGION="ap-south-1"
 
-echo "=== Assuming role: eks-backend-dev-role (Dave) ==="
-CREDS=$(aws sts assume-role \
-  --role-arn "$ROLE_ARN" \
-  --role-session-name dave \
-  --region "$REGION" \
-  --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
-  --output text)
-
-export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | awk '{print $1}')
-export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | awk '{print $2}')
-export AWS_SESSION_TOKEN=$(echo "$CREDS" | awk '{print $3}')
-
-aws eks update-kubeconfig --name "$CLUSTER" --region "$REGION"
+echo "=== Identity: $(aws sts get-caller-identity --query Arn --output text) ==="
+aws eks update-kubeconfig --name "$CLUSTER" --region "$REGION" --profile dave 2>/dev/null
 
 echo ""
 echo "=== Dave access matrix ==="

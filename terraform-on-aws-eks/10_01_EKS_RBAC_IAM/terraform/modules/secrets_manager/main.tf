@@ -14,7 +14,7 @@
 resource "aws_secretsmanager_secret" "postgres" {
   name                    = "${var.cluster_name}/pulseauth/postgres"
   description             = "PulseAuth PostgreSQL credentials — seed via CLI after apply"
-  recovery_window_in_days = 0  # immediate delete ok in dev — set 7 for prod
+  recovery_window_in_days = 0 # immediate delete ok in dev — set 7 for prod
 
   tags = merge(var.common_tags, { Name = "${var.cluster_name}/pulseauth/postgres" })
 

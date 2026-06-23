@@ -6,4 +6,9 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: frontend-prod
+---
+apiVersion: v1
+kind: Namespace
+metadata:
   name: monitoring

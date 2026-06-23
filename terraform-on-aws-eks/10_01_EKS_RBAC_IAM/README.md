@@ -1,85 +1,116 @@
-# 10_01 — EKS RBAC & IAM
+# EKS RBAC + IAM — FinTech Team Access Control
 
-## Problem
+Eight engineers. Eight different jobs. Zero overlap in what they can touch.
 
-EKS cluster is up. Anyone with AWS credentials can hit the API endpoint. How do you control
-who can access the cluster and what they can do once inside?
+RBAC default-deny makes this work: if a resource isn't listed in your Role, you can't see it.
+No explicit deny required. The permission matrix exists entirely in the gaps.
 
-Answer: two separate layers.
+---
+
+## Full flow
 
 ```text
-Layer 1 — AWS IAM (authentication):    WHO are you?
-Layer 2 — Kubernetes RBAC (authorization): WHAT can you do?
+IAM User ──► IAM Group ──► sts:AssumeRole ──► IAM Role
+                                                   │
+                              EKS Access Entry ◄───┘
+                                   │ maps role ARN → k8s username + k8s groups
+                          ClusterRoleBinding / RoleBinding
+                                   │ subject: Group name must match exactly
+                          ClusterRole / Role ──► ALLOW (only; omission = DENY)
 ```
 
 ---
 
-## Implementation map
+## Core concept: scope is in the binding, not the role
+
+Wrong instinct: "just give everyone a ClusterRole with restricted verbs."
+
+The scope of the **binding** determines what namespace a permission covers, not the role's
+content. The same ClusterRole can be cluster-wide or namespace-scoped depending on how
+it's bound.
 
 ```text
-10_01_EKS_RBAC_IAM/
-├── terraform/
-│   ├── iam.tf              ← 8 IAM roles, 8 users, groups, trust policies
-│   └── access_entries.tf   ← IAM role ARN → k8s username + k8s groups (the bridge)
-│
-├── 00_concepts/            ← Read ALL of these before touching anything
-│   ├── 01_authentication_vs_authorization.md
-│   ├── 02_iam_vs_rbac.md
-│   ├── 03_cluster_creator.md
-│   ├── 04_aws_auth_vs_access_entries.md
-│   ├── 05_end_to_end_flow.md
-│   ├── 06_kubectl_to_api_server.md     ← token flow, API pipeline, etcd vs cache
-│   ├── 07_clusterrole_vs_role.md       ← scope decision + blast radius principle
-│   └── 08_kubernetes_groups_and_audit.md ← groups, audit trail, CloudTrail cross-ref
-│
-├── 01_iam_setup/           ← explains terraform/iam.tf
-├── 02_access_entries/      ← explains terraform/access_entries.tf
-│
-├── 03_rbac_manifests/
-│   └── k8s-manifests/
-│       ├── 00-namespaces.yaml
-│       ├── cluster-roles/   ← devops-admin, devops-viewer, readonly, security-audit
-│       ├── roles/           ← backend-admin, backend-dev, frontend-dev
-│       ├── cluster-role-bindings/
-│       └── role-bindings/
-│
-└── 04_validation/
-    └── scripts/             ← test-alice.sh ... test-grace.sh
+CLUSTER-WIDE                          NAMESPACE-SCOPED
+──────────────────────────            ──────────────────────────
+ClusterRole                           ClusterRole  OR  Role
+     +                                      +
+ClusterRoleBinding                    RoleBinding (namespace: backend-prod)
+     =                                      =
+every namespace                       backend-prod ONLY
 ```
+
+Alice (devops-admin): ClusterRole + ClusterRoleBinding → manages pods anywhere.
+Charlie (backend-admin): Role + RoleBinding in backend-prod → `kubectl get pods -n frontend-prod` → DENIED.
+
+This is how you grant Charlie backend ownership without letting him touch frontend.
+Secrets protection: don't list `secrets` in the Role rules. No extra mechanism. Omission = denial.
 
 ---
 
-## Personas
+## Terraform modules
 
 ```text
-Alice   (Lead DevOps)     → eks-devops-admin-role    → cluster-wide, exec yes
-Bob     (DevOps Engineer) → eks-devops-role           → cluster-wide, read+rollout
-Charlie (Backend Lead)    → eks-backend-dev-admin-role→ backend-prod only, exec yes
-Dave    (Backend Dev)     → eks-backend-dev-role      → backend-prod only, rollout
-Eve     (Frontend Dev)    → eks-frontend-dev-role     → frontend-prod only, read+logs
-Frank   (On-call SRE)     → eks-devops-role           → same as Bob
-Grace   (Security)        → eks-security-role         → cluster-wide, secrets list
-Henry   (Break-glass)     → eks-cluster-admin-role    → system:masters, vault-locked
+modules/vpc             → 3-AZ VPC, public/private subnets, NAT GW
+modules/eks             → cluster, node group, OIDC provider, addons, bastion access entry
+modules/bastion         → EC2 SSM-only (no SSH, no key pairs)
+modules/ecr             → ECR repo (pulseauth:latest)
+modules/secrets_manager → blank secret shells (seeded via CLI after apply, never in .tfstate)
+modules/eso_iam         → IRSA role: pulseauth-sa → Secrets Manager get
+modules/rbac_personas   → 8 IAM users, 8 roles, 6 IAM groups, EKS access entries
+modules/frontend_s3     → S3 static website bucket for Angular build
+```
+
+`rbac_personas` uses a locals map — adding a new engineer is one map entry, zero new resource
+blocks. IAM group membership auto-grants the correct `sts:AssumeRole` policy.
+
+---
+
+## Kubernetes workloads
+
+```text
+backend-prod namespace
+├── pulseauth-sa (ServiceAccount)
+│     └── IRSA → eks-rbac-dev-pulseauth-eso-role → Secrets Manager
+│
+├── pulseauth-secret-store (SecretStore, auth via pulseauth-sa JWT)
+├── pulseauth-postgres-external-secret → pulseauth-postgres-secret
+│     └── SM key: eks-rbac-dev/pulseauth/postgres
+├── pulseauth-mail-external-secret → pulseauth-mail-secret
+│     └── SM key: eks-rbac-dev/pulseauth/mail
+│
+├── postgres (StatefulSet)  :5432  EBS 5Gi  subPath:pgdata
+├── postgres-svc             ClusterIP headless
+│
+├── redis (Deployment)       :6379  redis:7-alpine
+├── redis-svc                ClusterIP
+│
+├── pulseauth (Deployment)   :8080  ECR pulseauth:latest
+│     env: pulseauth-postgres-secret + pulseauth-mail-secret + redis-svc DNS
+│
+└── pulseauth-svc            LoadBalancer  :80 → pod :8080  (creates NLB)
+
+S3 (outside EKS)
+└── eks-rbac-dev-frontend  static website → Angular → NLB endpoint
 ```
 
 ---
 
-## Execution order
+## Personas + IAM roles
 
-```bash
-Step 1: cd 00_concepts/ — read all 8 docs
-Step 2: cd terraform/ && terraform apply — creates IAM + access entries
-Step 3: kubectl apply -f 03_rbac_manifests/k8s-manifests/ — loads RBAC into cluster
-Step 4: bash 04_validation/scripts/test-dave.sh — prove it works
-```
+| Persona    | Role                    | k8s group              | Scope                     | Secrets       | Exec |
+| ---------- | ----------------------- | ---------------------- | ------------------------- | ------------- | ---- |
+| alice      | devops-admin-role       | eks-devops-admins      | cluster-wide              | NO            | YES  |
+| bob, frank | devops-role             | eks-devops             | cluster-wide              | NO            | NO   |
+| charlie    | backend-dev-admin-role  | eks-backend-admins     | backend-prod              | NO            | YES  |
+| dave       | backend-dev-role        | eks-backend-devs       | backend-prod              | NO            | NO   |
+| eve        | frontend-dev-role       | eks-frontend-devs      | backend-prod readonly     | NO            | NO   |
+| grace      | security-role           | eks-security           | cluster-wide + RBAC audit | YES (list/get)| NO   |
+| henry      | cluster-admin-role      | EKSClusterAdminPolicy  | full cluster              | YES           | YES  |
+
+Grace is the only persona with `secrets: [get, list]` — audits what secrets exist, not values.
+Henry has no IAM group. Direct user policy, EKS managed policy association, break-glass only.
 
 ---
 
-## Revision notes
-
-- IAM = authentication only. RBAC = authorization only. Never confuse them.
-- Access Entry = the bridge. Group names MUST match between access_entries.tf and YAML bindings.
-- ClusterRole for ops/security (they work everywhere). Role for devs (namespace isolation).
-- Secrets protection = simply don't list `secrets` in the Role rules. No extra mechanism.
-- `system:masters` needs no RBAC manifest — built-in K8s privilege group. Break-glass only.
-- RBAC is additive — no explicit deny. Omission = denied.
+→ Deploy: [deployment-steps.md](deployment-steps.md)
+→ Debug:  [troubleshooting.md](troubleshooting.md)

@@ -17,7 +17,7 @@ resource "aws_iam_instance_profile" "bastion_instance_profile" {
 resource "aws_security_group" "bastion_sg" {
   name        = "${var.name}-bastion-sg"
   description = "Bastion host SG - no inbound needed, SSM uses outbound 443 only"
-  vpc_id = var.vpc_id
+  vpc_id      = var.vpc_id
   # No inbound rules — SSM agent calls OUT to AWS on 443, no inbound port needed
   egress {
     description = "Allow outbound HTTPS to reach AWS SSM and EKS endpoints"

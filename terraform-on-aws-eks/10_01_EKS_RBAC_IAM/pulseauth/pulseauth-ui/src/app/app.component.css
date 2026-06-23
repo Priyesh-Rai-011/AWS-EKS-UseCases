@@ -1,0 +1,51 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.shell { max-width: 900px; margin: 0 auto; padding: 24px; font-family: system-ui, sans-serif; }
+
+header { display: flex; align-items: center; gap: 24px; margin-bottom: 32px; padding-bottom: 16px; border-bottom: 2px solid #e0e0e0; }
+
+header h1 { font-size: 1.6rem; color: #1a1a2e; }
+
+nav { display: flex; gap: 8px; }
+
+nav button { padding: 8px 16px; border: 2px solid #4361ee; border-radius: 6px; background: white; color: #4361ee; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+
+nav button.active, nav button:hover { background: #4361ee; color: white; }
+
+section { background: white; border-radius: 10px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+
+.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+
+h2 { font-size: 1.2rem; color: #1a1a2e; margin-bottom: 16px; }
+
+table { width: 100%; border-collapse: collapse; }
+
+th, td { text-align: left; padding: 12px; border-bottom: 1px solid #f0f0f0; }
+
+th { font-size: 0.8rem; text-transform: uppercase; color: #888; }
+
+.badge-yes { background: #d1fae5; color: #065f46; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; }
+.badge-no  { background: #fee2e2; color: #991b1b; padding: 2px 10px; border-radius: 12px; font-size: 0.8rem; }
+
+form { display: flex; flex-direction: column; gap: 14px; max-width: 400px; }
+
+label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: #555; font-weight: 600; }
+
+input { padding: 10px 12px; border: 1.5px solid #ddd; border-radius: 6px; font-size: 1rem; outline: none; }
+
+input:focus { border-color: #4361ee; }
+
+button[type=submit] { padding: 10px; background: #4361ee; color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 4px; }
+
+button[type=submit]:hover { background: #3251d3; }
+
+.btn-secondary { padding: 6px 14px; background: white; border: 1.5px solid #4361ee; color: #4361ee; border-radius: 6px; cursor: pointer; font-weight: 600; }
+
+.btn-danger { padding: 4px 10px; background: white; border: 1.5px solid #ef4444; color: #ef4444; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+
+.btn-danger:hover { background: #ef4444; color: white; }
+
+.alert-success { margin-top: 16px; padding: 14px; background: #d1fae5; border-radius: 6px; color: #065f46; }
+.alert-error   { margin-top: 16px; padding: 14px; background: #fee2e2; border-radius: 6px; color: #991b1b; }
+
+.otp-display { margin-top: 8px; font-size: 1.1rem; }

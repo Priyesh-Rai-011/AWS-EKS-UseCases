@@ -98,6 +98,8 @@ module "rbac_personas" {
   cluster_arn  = module.eks.cluster_arn
   account_id   = data.aws_caller_identity.current.account_id
   tags         = local.common_tags
+
+  depends_on = [module.eks]
 }
 
 # ── S3 STATIC FRONTEND ────────────────────────────────────────────────────────

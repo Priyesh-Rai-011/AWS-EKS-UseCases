@@ -3,23 +3,12 @@
 # Expected: cluster-wide access, exec YES, secrets NO
 set -euo pipefail
 
-ROLE_ARN=${1:-"$(terraform -chdir=../terraform output -json persona_role_arns | jq -r '.devops_admin')"}
-CLUSTER=$(terraform -chdir=../terraform output -raw cluster_name)
+export AWS_PROFILE=alice
+CLUSTER="eks-rbac-dev"
 REGION="ap-south-1"
 
-echo "=== Assuming role: eks-devops-admin-role (Alice) ==="
-CREDS=$(aws sts assume-role \
-  --role-arn "$ROLE_ARN" \
-  --role-session-name alice \
-  --region "$REGION" \
-  --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
-  --output text)
-
-export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | awk '{print $1}')
-export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | awk '{print $2}')
-export AWS_SESSION_TOKEN=$(echo "$CREDS" | awk '{print $3}')
-
-aws eks update-kubeconfig --name "$CLUSTER" --region "$REGION"
+echo "=== Identity: $(aws sts get-caller-identity --query Arn --output text) ==="
+aws eks update-kubeconfig --name "$CLUSTER" --region "$REGION" --profile alice 2>/dev/null
 
 echo ""
 echo "=== Alice access matrix ==="
@@ -42,15 +31,15 @@ run_test() {
   fi
 }
 
-run_test "get pods (backend-prod)"        ALLOWED get pods          -n backend-prod
-run_test "get pods (frontend-prod)"       ALLOWED get pods          -n frontend-prod
-run_test "get pods (kube-system)"         ALLOWED get pods          -n kube-system
-run_test "exec into pod (backend-prod)"   ALLOWED create pods/exec  -n backend-prod
-run_test "view logs (backend-prod)"       ALLOWED get pods/log      -n backend-prod
+run_test "get pods (backend-prod)"        ALLOWED get pods           -n backend-prod
+run_test "get pods (frontend-prod)"       ALLOWED get pods           -n frontend-prod
+run_test "get pods (kube-system)"         ALLOWED get pods           -n kube-system
+run_test "exec into pod (backend-prod)"   ALLOWED create pods/exec   -n backend-prod
+run_test "view logs (backend-prod)"       ALLOWED get pods/log       -n backend-prod
 run_test "create deployment (backend)"    ALLOWED create deployments -n backend-prod
-run_test "delete pod (frontend-prod)"     ALLOWED delete pods       -n frontend-prod
-run_test "get secrets (backend-prod)"     DENIED  get secrets       -n backend-prod
-run_test "get secrets (frontend-prod)"    DENIED  get secrets       -n frontend-prod
+run_test "delete pod (frontend-prod)"     ALLOWED delete pods        -n frontend-prod
+run_test "get secrets (backend-prod)"     DENIED  get secrets        -n backend-prod
+run_test "get secrets (frontend-prod)"    DENIED  get secrets        -n frontend-prod
 run_test "get nodes"                      ALLOWED get nodes
 
 echo ""

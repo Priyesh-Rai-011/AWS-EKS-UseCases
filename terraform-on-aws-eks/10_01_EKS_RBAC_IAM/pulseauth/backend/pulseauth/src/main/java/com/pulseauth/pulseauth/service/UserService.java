@@ -22,6 +22,7 @@ public class UserService {
     private final StringRedisTemplate redisTemplate;
     private final EmailService emailService;
 
+    @CacheEvict(value = "users", allEntries = true)
     public String signup(SignupRequest req) {
         if (userRepository.existsByEmail(req.getEmail())) {
             throw new IllegalArgumentException("Email already registered");
@@ -39,6 +40,7 @@ public class UserService {
         return "OTP sent to " + req.getEmail();
     }
 
+    @CacheEvict(value = {"users", "user"}, allEntries = true)
     public String verifyOtp(String email, String otp) {
         String stored = redisTemplate.opsForValue().get("otp:" + email);
         if (stored == null) throw new IllegalStateException("OTP expired or not found");

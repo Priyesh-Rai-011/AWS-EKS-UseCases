@@ -9,7 +9,7 @@ resource "aws_s3_bucket" "frontend" {
 resource "aws_s3_bucket_website_configuration" "frontend" {
   bucket = aws_s3_bucket.frontend.id
   index_document { suffix = "index.html" }
-  error_document { key = "index.html" }  # SPA — all routes serve index.html
+  error_document { key = "index.html" } # SPA — all routes serve index.html
 }
 
 resource "aws_s3_bucket_public_access_block" "frontend" {

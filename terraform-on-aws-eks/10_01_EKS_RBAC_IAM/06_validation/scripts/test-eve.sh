@@ -1,27 +1,16 @@
 #!/usr/bin/env bash
 # Eve — frontend-dev (readonly in backend-prod)
-# Angular runs on S3 — no frontend-prod k8s namespace.
+# Angular runs on S3 — no frontend-prod k8s workloads.
 # Eve can only VIEW backend pods/logs to check API health.
 # Expected: read + logs in backend-prod, NO exec, NO secrets, NO write
 set -euo pipefail
 
-ROLE_ARN=${1:-"$(terraform -chdir=../terraform output -json persona_role_arns | jq -r '.frontend_dev')"}
-CLUSTER=$(terraform -chdir=../terraform output -raw cluster_name)
+export AWS_PROFILE=eve
+CLUSTER="eks-rbac-dev"
 REGION="ap-south-1"
 
-echo "=== Assuming role: eks-frontend-dev-role (Eve) ==="
-CREDS=$(aws sts assume-role \
-  --role-arn "$ROLE_ARN" \
-  --role-session-name eve \
-  --region "$REGION" \
-  --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
-  --output text)
-
-export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | awk '{print $1}')
-export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | awk '{print $2}')
-export AWS_SESSION_TOKEN=$(echo "$CREDS" | awk '{print $3}')
-
-aws eks update-kubeconfig --name "$CLUSTER" --region "$REGION"
+echo "=== Identity: $(aws sts get-caller-identity --query Arn --output text) ==="
+aws eks update-kubeconfig --name "$CLUSTER" --region "$REGION" --profile eve 2>/dev/null
 
 echo ""
 echo "=== Eve access matrix ==="

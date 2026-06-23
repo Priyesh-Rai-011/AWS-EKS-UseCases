@@ -5,109 +5,95 @@
 # Chain: IAM User → IAM Group → sts:AssumeRole → IAM Role
 #        → EKS Access Entry → k8s username + k8s groups
 #        → ClusterRoleBinding/RoleBinding (in 03_rbac_manifests/)
+#
+# Adding a persona = one map entry. Zero new resource blocks.
 # ==============================================================================
+
+locals {
+  personas = {
+    alice   = "Lead DevOps"
+    bob     = "DevOps Engineer"
+    charlie = "Backend Lead"
+    dave    = "Backend Dev"
+    eve     = "Frontend Dev"
+    frank   = "On-call SRE"
+    grace   = "Security Auditor"
+    henry   = "Break-glass"
+  }
+
+  # principals = [] → trust account root (readonly pattern, no specific user)
+  roles = {
+    cluster_admin     = { suffix = "cluster-admin-role", principals = ["henry"] }
+    devops_admin      = { suffix = "devops-admin-role", principals = ["alice"] }
+    devops            = { suffix = "devops-role", principals = ["bob", "frank"] }
+    backend_dev_admin = { suffix = "backend-dev-admin-role", principals = ["charlie"] }
+    backend_dev       = { suffix = "backend-dev-role", principals = ["dave"] }
+    frontend_dev      = { suffix = "frontend-dev-role", principals = ["eve"] }
+    readonly          = { suffix = "readonly-role", principals = [] }
+    security          = { suffix = "security-role", principals = ["grace"] }
+  }
+
+  groups = {
+    devops_admins  = { suffix = "devops-admins-group", role_key = "devops_admin", members = ["alice"] }
+    devops         = { suffix = "devops-group", role_key = "devops", members = ["bob", "frank"] }
+    backend_admins = { suffix = "backend-admins-group", role_key = "backend_dev_admin", members = ["charlie"] }
+    backend_devs   = { suffix = "backend-devs-group", role_key = "backend_dev", members = ["dave"] }
+    frontend_devs  = { suffix = "frontend-devs-group", role_key = "frontend_dev", members = ["eve"] }
+    security       = { suffix = "security-group", role_key = "security", members = ["grace"] }
+  }
+
+  # Flatten group members → { username = group_key }
+  group_memberships = merge([
+    for gk, g in local.groups : {
+      for member in g.members : member => gk
+    }
+  ]...)
+
+  # cluster_admin excluded — uses aws_eks_access_policy_association (AmazonEKSClusterAdminPolicy)
+  # EKS API blocks system:masters in kubernetes_groups on standard access entries
+  access_entries = {
+    devops_admin      = { username = "devops-admin", k8s_groups = ["eks-devops-admins"] }
+    devops            = { username = "devops", k8s_groups = ["eks-devops"] }
+    backend_dev_admin = { username = "backend-dev-admin", k8s_groups = ["eks-backend-admins"] }
+    backend_dev       = { username = "backend-dev", k8s_groups = ["eks-backend-devs"] }
+    frontend_dev      = { username = "frontend-dev", k8s_groups = ["eks-frontend-devs"] }
+    readonly          = { username = "readonly", k8s_groups = ["eks-readonly"] }
+    security          = { username = "security-auditor", k8s_groups = ["eks-security"] }
+  }
+}
 
 # ── IAM USERS ─────────────────────────────────────────────────────────────────
 
-resource "aws_iam_user" "alice"   { name = "alice"   tags = merge(var.tags, { Role = "Lead DevOps" }) }
-resource "aws_iam_user" "bob"     { name = "bob"     tags = merge(var.tags, { Role = "DevOps Engineer" }) }
-resource "aws_iam_user" "charlie" { name = "charlie" tags = merge(var.tags, { Role = "Backend Lead" }) }
-resource "aws_iam_user" "dave"    { name = "dave"    tags = merge(var.tags, { Role = "Backend Dev" }) }
-resource "aws_iam_user" "eve"     { name = "eve"     tags = merge(var.tags, { Role = "Frontend Dev" }) }
-resource "aws_iam_user" "frank"   { name = "frank"   tags = merge(var.tags, { Role = "On-call SRE" }) }
-resource "aws_iam_user" "grace"   { name = "grace"   tags = merge(var.tags, { Role = "Security Auditor" }) }
-resource "aws_iam_user" "henry"   { name = "henry"   tags = merge(var.tags, { Role = "Break-glass" }) }
+resource "aws_iam_user" "personas" {
+  for_each = local.personas
+  name     = each.key
+  tags     = merge(var.tags, { Role = each.value })
+}
 
 # ── IAM ROLES ─────────────────────────────────────────────────────────────────
 
-resource "aws_iam_role" "cluster_admin" {
-  name = "${var.cluster_name}-cluster-admin-role"
+resource "aws_iam_role" "roles" {
+  for_each = local.roles
+  name     = "${var.cluster_name}-${each.value.suffix}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{ Effect = "Allow", Principal = { AWS = aws_iam_user.henry.arn }, Action = "sts:AssumeRole" }]
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        AWS = length(each.value.principals) > 0 ? [for p in each.value.principals : aws_iam_user.personas[p].arn] : ["arn:aws:iam::${var.account_id}:root"]
+      }
+      Action = "sts:AssumeRole"
+    }]
   })
-  tags = merge(var.tags, { Name = "${var.cluster_name}-cluster-admin-role" })
-}
-
-resource "aws_iam_role" "devops_admin" {
-  name = "${var.cluster_name}-devops-admin-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{ Effect = "Allow", Principal = { AWS = aws_iam_user.alice.arn }, Action = "sts:AssumeRole" }]
-  })
-  tags = merge(var.tags, { Name = "${var.cluster_name}-devops-admin-role" })
-}
-
-resource "aws_iam_role" "devops" {
-  name = "${var.cluster_name}-devops-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{ Effect = "Allow", Principal = { AWS = [aws_iam_user.bob.arn, aws_iam_user.frank.arn] }, Action = "sts:AssumeRole" }]
-  })
-  tags = merge(var.tags, { Name = "${var.cluster_name}-devops-role" })
-}
-
-resource "aws_iam_role" "backend_dev_admin" {
-  name = "${var.cluster_name}-backend-dev-admin-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{ Effect = "Allow", Principal = { AWS = aws_iam_user.charlie.arn }, Action = "sts:AssumeRole" }]
-  })
-  tags = merge(var.tags, { Name = "${var.cluster_name}-backend-dev-admin-role" })
-}
-
-resource "aws_iam_role" "backend_dev" {
-  name = "${var.cluster_name}-backend-dev-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{ Effect = "Allow", Principal = { AWS = aws_iam_user.dave.arn }, Action = "sts:AssumeRole" }]
-  })
-  tags = merge(var.tags, { Name = "${var.cluster_name}-backend-dev-role" })
-}
-
-resource "aws_iam_role" "frontend_dev" {
-  name = "${var.cluster_name}-frontend-dev-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{ Effect = "Allow", Principal = { AWS = aws_iam_user.eve.arn }, Action = "sts:AssumeRole" }]
-  })
-  tags = merge(var.tags, { Name = "${var.cluster_name}-frontend-dev-role" })
-}
-
-resource "aws_iam_role" "readonly" {
-  name = "${var.cluster_name}-readonly-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{ Effect = "Allow", Principal = { AWS = "arn:aws:iam::${var.account_id}:root" }, Action = "sts:AssumeRole" }]
-  })
-  tags = merge(var.tags, { Name = "${var.cluster_name}-readonly-role" })
-}
-
-resource "aws_iam_role" "security" {
-  name = "${var.cluster_name}-security-role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{ Effect = "Allow", Principal = { AWS = aws_iam_user.grace.arn }, Action = "sts:AssumeRole" }]
-  })
-  tags = merge(var.tags, { Name = "${var.cluster_name}-security-role" })
+  tags = merge(var.tags, { Name = "${var.cluster_name}-${each.value.suffix}" })
 }
 
 # ── EKS DESCRIBE POLICY — all roles need this to run aws eks update-kubeconfig ─
 
 resource "aws_iam_role_policy" "eks_describe" {
-  for_each = {
-    cluster_admin   = aws_iam_role.cluster_admin.name
-    devops_admin    = aws_iam_role.devops_admin.name
-    devops          = aws_iam_role.devops.name
-    backend_admin   = aws_iam_role.backend_dev_admin.name
-    backend_dev     = aws_iam_role.backend_dev.name
-    frontend_dev    = aws_iam_role.frontend_dev.name
-    readonly        = aws_iam_role.readonly.name
-    security        = aws_iam_role.security.name
-  }
-
-  name = "eks-describe-policy"
-  role = each.value
+  for_each = aws_iam_role.roles
+  name     = "eks-describe-policy"
+  role     = each.value.name
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -118,100 +104,69 @@ resource "aws_iam_role_policy" "eks_describe" {
   })
 }
 
-# cluster-admin gets AmazonEKSClusterAdminPolicy (break-glass only)
-resource "aws_iam_role_policy_attachment" "cluster_admin_eks" {
-  role       = aws_iam_role.cluster_admin.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterAdminPolicy"
+# Henry: direct user policy — no group, break-glass means out-of-band access only
+resource "aws_iam_user_policy" "henry_assume_cluster_admin" {
+  name = "assume-cluster-admin"
+  user = aws_iam_user.personas["henry"].name
+  policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Resource = aws_iam_role.roles["cluster_admin"].arn }]
+  })
 }
 
 # ── IAM GROUPS ────────────────────────────────────────────────────────────────
 
-resource "aws_iam_group" "devops_admins"  { name = "${var.cluster_name}-devops-admins-group" }
-resource "aws_iam_group" "devops"         { name = "${var.cluster_name}-devops-group" }
-resource "aws_iam_group" "backend_admins" { name = "${var.cluster_name}-backend-admins-group" }
-resource "aws_iam_group" "backend_devs"   { name = "${var.cluster_name}-backend-devs-group" }
-resource "aws_iam_group" "frontend_devs"  { name = "${var.cluster_name}-frontend-devs-group" }
-resource "aws_iam_group" "security"       { name = "${var.cluster_name}-security-group" }
+resource "aws_iam_group" "groups" {
+  for_each = local.groups
+  name     = "${var.cluster_name}-${each.value.suffix}"
+}
 
-resource "aws_iam_user_group_membership" "alice"   { user = aws_iam_user.alice.name;   groups = [aws_iam_group.devops_admins.name] }
-resource "aws_iam_user_group_membership" "bob"     { user = aws_iam_user.bob.name;     groups = [aws_iam_group.devops.name] }
-resource "aws_iam_user_group_membership" "charlie" { user = aws_iam_user.charlie.name; groups = [aws_iam_group.backend_admins.name] }
-resource "aws_iam_user_group_membership" "dave"    { user = aws_iam_user.dave.name;    groups = [aws_iam_group.backend_devs.name] }
-resource "aws_iam_user_group_membership" "eve"     { user = aws_iam_user.eve.name;     groups = [aws_iam_group.frontend_devs.name] }
-resource "aws_iam_user_group_membership" "frank"   { user = aws_iam_user.frank.name;   groups = [aws_iam_group.devops.name] }
-resource "aws_iam_user_group_membership" "grace"   { user = aws_iam_user.grace.name;   groups = [aws_iam_group.security.name] }
+resource "aws_iam_user_group_membership" "personas" {
+  for_each = local.group_memberships
+  user     = aws_iam_user.personas[each.key].name
+  groups   = [aws_iam_group.groups[each.value].name]
+}
 
-resource "aws_iam_group_policy" "devops_admins_assume"  { name = "assume-role"; group = aws_iam_group.devops_admins.name;  policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Resource = aws_iam_role.devops_admin.arn }] }) }
-resource "aws_iam_group_policy" "devops_assume"         { name = "assume-role"; group = aws_iam_group.devops.name;         policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Resource = aws_iam_role.devops.arn }] }) }
-resource "aws_iam_group_policy" "backend_admins_assume" { name = "assume-role"; group = aws_iam_group.backend_admins.name; policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Resource = aws_iam_role.backend_dev_admin.arn }] }) }
-resource "aws_iam_group_policy" "backend_devs_assume"   { name = "assume-role"; group = aws_iam_group.backend_devs.name;   policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Resource = aws_iam_role.backend_dev.arn }] }) }
-resource "aws_iam_group_policy" "frontend_devs_assume"  { name = "assume-role"; group = aws_iam_group.frontend_devs.name;  policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Resource = aws_iam_role.frontend_dev.arn }] }) }
-resource "aws_iam_group_policy" "security_assume"       { name = "assume-role"; group = aws_iam_group.security.name;       policy = jsonencode({ Version = "2012-10-17", Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Resource = aws_iam_role.security.arn }] }) }
+resource "aws_iam_group_policy" "assume_role" {
+  for_each = local.groups
+  name     = "assume-role"
+  group    = aws_iam_group.groups[each.key].name
+  policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [{ Effect = "Allow", Action = "sts:AssumeRole", Resource = aws_iam_role.roles[each.value.role_key].arn }]
+  })
+}
 
 # ── EKS ACCESS ENTRIES ────────────────────────────────────────────────────────
 # Bridge: IAM role ARN → k8s username + k8s groups
 # Group names MUST match ClusterRoleBinding/RoleBinding subjects in 03_rbac_manifests/
 
+resource "aws_eks_access_entry" "roles" {
+  for_each          = local.access_entries
+  cluster_name      = var.cluster_name
+  principal_arn     = aws_iam_role.roles[each.key].arn
+  user_name         = each.value.username
+  kubernetes_groups = each.value.k8s_groups
+  depends_on        = [aws_iam_role.roles]
+}
+
+# cluster_admin: EKS managed policy, not k8s group binding
+# system:masters is reserved — must use AmazonEKSClusterAdminPolicy via access policy association
 resource "aws_eks_access_entry" "cluster_admin" {
-  cluster_name      = var.cluster_name
-  principal_arn     = aws_iam_role.cluster_admin.arn
-  username          = "cluster-admin"
-  kubernetes_groups = ["system:masters"]
-  depends_on        = [aws_iam_role.cluster_admin]
+  cluster_name  = var.cluster_name
+  principal_arn = aws_iam_role.roles["cluster_admin"].arn
+  user_name     = "cluster-admin"
+  depends_on    = [aws_iam_role.roles]
 }
 
-resource "aws_eks_access_entry" "devops_admin" {
-  cluster_name      = var.cluster_name
-  principal_arn     = aws_iam_role.devops_admin.arn
-  username          = "devops-admin"
-  kubernetes_groups = ["eks-devops-admins"]
-  depends_on        = [aws_iam_role.devops_admin]
-}
+resource "aws_eks_access_policy_association" "cluster_admin" {
+  cluster_name  = var.cluster_name
+  principal_arn = aws_iam_role.roles["cluster_admin"].arn
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
 
-resource "aws_eks_access_entry" "devops" {
-  cluster_name      = var.cluster_name
-  principal_arn     = aws_iam_role.devops.arn
-  username          = "devops"
-  kubernetes_groups = ["eks-devops"]
-  depends_on        = [aws_iam_role.devops]
-}
+  access_scope {
+    type = "cluster"
+  }
 
-resource "aws_eks_access_entry" "backend_dev_admin" {
-  cluster_name      = var.cluster_name
-  principal_arn     = aws_iam_role.backend_dev_admin.arn
-  username          = "backend-dev-admin"
-  kubernetes_groups = ["eks-backend-admins"]
-  depends_on        = [aws_iam_role.backend_dev_admin]
-}
-
-resource "aws_eks_access_entry" "backend_dev" {
-  cluster_name      = var.cluster_name
-  principal_arn     = aws_iam_role.backend_dev.arn
-  username          = "backend-dev"
-  kubernetes_groups = ["eks-backend-devs"]
-  depends_on        = [aws_iam_role.backend_dev]
-}
-
-resource "aws_eks_access_entry" "frontend_dev" {
-  cluster_name      = var.cluster_name
-  principal_arn     = aws_iam_role.frontend_dev.arn
-  username          = "frontend-dev"
-  kubernetes_groups = ["eks-frontend-devs"]
-  depends_on        = [aws_iam_role.frontend_dev]
-}
-
-resource "aws_eks_access_entry" "readonly" {
-  cluster_name      = var.cluster_name
-  principal_arn     = aws_iam_role.readonly.arn
-  username          = "readonly"
-  kubernetes_groups = ["eks-readonly"]
-  depends_on        = [aws_iam_role.readonly]
-}
-
-resource "aws_eks_access_entry" "security" {
-  cluster_name      = var.cluster_name
-  principal_arn     = aws_iam_role.security.arn
-  username          = "security-auditor"
-  kubernetes_groups = ["eks-security"]
-  depends_on        = [aws_iam_role.security]
+  depends_on = [aws_eks_access_entry.cluster_admin]
 }
