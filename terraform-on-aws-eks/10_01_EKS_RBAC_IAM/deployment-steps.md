@@ -296,30 +296,96 @@ http://eks-rbac-dev-frontend.s3-website.ap-south-1.amazonaws.com
 
 ---
 
-## 14. Configure AWS profiles for RBAC personas
+## 14. Create access keys + configure AWS profiles for RBAC personas
 
-Each persona needs an AWS CLI profile pointing to their access key + the role they assume.
+Terraform created the IAM users but not their access keys. Create them now.
+
+```bash
+# Create access key for each persona (run as admin)
+for user in alice bob charlie dave eve grace henry; do
+  echo "=== $user ==="
+  aws iam create-access-key --user-name $user \
+    --query 'AccessKey.{ID:AccessKeyId,Secret:SecretAccessKey}' \
+    --output table
+done
+```
+
+Copy each `AccessKeyId` and `SecretAccessKey` into `~/.aws/credentials`:
 
 ```ini
-# ~/.aws/credentials  — add access keys for each persona
+# ~/.aws/credentials
 [alice]
 aws_access_key_id     = AKIA...
 aws_secret_access_key = ...
 
-# ~/.aws/config  — role assumption config
+[bob]
+aws_access_key_id     = AKIA...
+aws_secret_access_key = ...
+
+[charlie]
+aws_access_key_id     = AKIA...
+aws_secret_access_key = ...
+
+[dave]
+aws_access_key_id     = AKIA...
+aws_secret_access_key = ...
+
+[eve]
+aws_access_key_id     = AKIA...
+aws_secret_access_key = ...
+
+[grace]
+aws_access_key_id     = AKIA...
+aws_secret_access_key = ...
+
+[henry]
+aws_access_key_id     = AKIA...
+aws_secret_access_key = ...
+```
+
+Add role assumption config to `~/.aws/config`:
+
+```ini
+# ~/.aws/config
 [profile alice]
 role_arn       = arn:aws:iam::183295435445:role/eks-rbac-dev-devops-admin-role
 source_profile = alice
+
+[profile bob]
+role_arn       = arn:aws:iam::183295435445:role/eks-rbac-dev-devops-role
+source_profile = bob
+
+[profile charlie]
+role_arn       = arn:aws:iam::183295435445:role/eks-rbac-dev-backend-dev-admin-role
+source_profile = charlie
+
+[profile dave]
+role_arn       = arn:aws:iam::183295435445:role/eks-rbac-dev-backend-dev-role
+source_profile = dave
+
+[profile eve]
+role_arn       = arn:aws:iam::183295435445:role/eks-rbac-dev-frontend-dev-role
+source_profile = eve
+
+[profile grace]
+role_arn       = arn:aws:iam::183295435445:role/eks-rbac-dev-security-role
+source_profile = grace
+
+[profile henry]
+role_arn       = arn:aws:iam::183295435445:role/eks-rbac-dev-cluster-admin-role
+source_profile = henry
 ```
 
-Repeat for: bob, charlie, dave, eve, grace (their respective role ARNs).
-Henry is a user policy — no `role_arn` needed, uses keys directly with cluster-admin-role.
+Henry has a direct user policy for `sts:AssumeRole` — no IAM group needed, same pattern.
 
-Verify identity:
+Verify each persona assumes the correct role:
 
 ```bash
 aws sts get-caller-identity --profile alice
-# "Arn": "arn:aws:iam::183295435445:assumed-role/eks-rbac-dev-devops-admin-role/..."
+# "Arn": "arn:aws:iam::183295435445:assumed-role/eks-rbac-dev-devops-admin-role/alice"
+
+aws sts get-caller-identity --profile henry
+# "Arn": "arn:aws:iam::183295435445:assumed-role/eks-rbac-dev-cluster-admin-role/henry"
 ```
 
 ---
