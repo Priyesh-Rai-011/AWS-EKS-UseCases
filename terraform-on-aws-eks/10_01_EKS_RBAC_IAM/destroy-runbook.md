@@ -30,9 +30,16 @@ aws elbv2 describe-load-balancers --region ap-south-1 \
   --query 'LoadBalancers[*].{Name:LoadBalancerName,State:State.Code}' \
   --output table
 
-# Delete PVC — releases the EBS volume claim
-# (volume itself survives due to reclaimPolicy: Retain — handled in step 5)
+# Delete StatefulSet FIRST — PVC stays Terminating forever if StatefulSet holds it
+kubectl delete statefulset postgres -n backend-prod
+kubectl delete deployment pulseauth redis -n backend-prod
+
+# Now delete PVCs
 kubectl delete pvc --all -n backend-prod
+
+# Verify PVCs gone (not stuck Terminating)
+kubectl get pvc -n backend-prod
+# Expected: "No resources found"
 
 # Verify NLB gone before proceeding
 # If still present after 5 min: check EC2 → Load Balancers and delete manually
